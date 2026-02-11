@@ -11,7 +11,7 @@
 # Repo layout
 
 ```
-/pentegent
+/penetragent
   /controller
   /scanner
   /shared

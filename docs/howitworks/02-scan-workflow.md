@@ -10,9 +10,10 @@ sequenceDiagram
     participant W as Worker
     participant DB as SQLite
 
-    U->>C: "scan staging headers"
+    U->>C: "scan https://example.com"
     C->>C: allowlist check (user ID)
-    C->>S: POST /scan {targetId, profileId, requestedBy}
+    C->>S: POST /scan {url, scanType?, requestedBy}
+    S->>DB: UPSERT target (hostname as ID)
     S->>DB: Check for RUNNING jobs
     alt Job already running
         S-->>C: 429 {error: RATE_LIMITED, runningJobId}
@@ -46,6 +47,26 @@ sequenceDiagram
             C-->>U: "Job completed! Status: SUCCEEDED<br/>good: 3, weak: 1, missing: 2"
         end
     end
+```
+
+## Direct curl Workflow
+
+```mermaid
+sequenceDiagram
+    participant D as Developer (curl)
+    participant S as Scanner API
+    participant W as Worker
+    participant DB as SQLite
+
+    D->>S: POST /scan {url: "https://example.com", scanType?, requestedBy}
+    S->>S: Auto-register target (hostname as ID)
+    S->>DB: UPSERT target + INSERT job (QUEUED)
+    S-->>D: 201 {jobId, status: QUEUED}
+
+    Note over W: Worker picks up job...
+
+    D->>S: GET /jobs/{jobId}
+    S-->>D: {status: SUCCEEDED, summaryJson: {good: 3, weak: 1, ...}}
 ```
 
 ## Job State Machine

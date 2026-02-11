@@ -4,7 +4,7 @@ services:
       context: ..
       dockerfile: scanner/Dockerfile
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       - SCANNER_PORT=8080
       - SCANNER_HOST=0.0.0.0

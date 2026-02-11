@@ -2,12 +2,11 @@ import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from "vites
 import Fastify, { type FastifyInstance } from "fastify";
 import Database from "better-sqlite3";
 import { migrate } from "../../db/migrate.js";
-import { seed } from "../../db/seed.js";
 import { healthRoutes } from "../../routes/health.js";
 import { scanRoutes } from "../../routes/scan.js";
 import { jobsRoutes } from "../../routes/jobs.js";
 import { startWorker } from "../../worker/worker.js";
-import type { ScannerConfig } from "@pentegent/shared";
+import type { ScannerConfig } from "@penetragent/shared";
 
 // Mock DNS to avoid real network calls
 vi.mock("node:dns/promises", () => ({
@@ -39,17 +38,26 @@ const testConfig: ScannerConfig = {
   port: 0,
   host: "127.0.0.1",
   dbPath: ":memory:",
-  reportsDir: "/tmp/pentegent-test-reports",
+  reportsDir: "/tmp/penetragent-test-reports",
   workerPollIntervalMs: 100,
   heartbeatIntervalMs: 5000,
   staleHeartbeatThresholdMs: 30000,
 };
 
+function seedTestTargets(db: Database.Database): void {
+  db.prepare(
+    "INSERT INTO targets (id, base_url, description) VALUES (?, ?, ?)",
+  ).run("staging", "https://staging.example.com", "Test staging");
+  db.prepare(
+    "INSERT INTO targets (id, base_url, description) VALUES (?, ?, ?)",
+  ).run("prod", "https://prod.example.com", "Test prod");
+}
+
 function buildApp(): { app: FastifyInstance; db: Database.Database } {
   const db = new Database(":memory:");
   db.pragma("foreign_keys = ON");
   migrate(db);
-  seed(db);
+  seedTestTargets(db);
 
   const app = Fastify();
   app.decorate("db", db);
@@ -89,7 +97,7 @@ describe("Scanner API integration", () => {
       url: "/scan",
       payload: {
         targetId: "nonexistent",
-        profileId: "headers",
+        scanType: "headers",
         requestedBy: "test",
       },
     });
@@ -113,7 +121,7 @@ describe("Scanner API integration", () => {
       url: "/scan",
       payload: {
         targetId: "staging",
-        profileId: "headers",
+        scanType: "headers",
         requestedBy: "test",
       },
     });
@@ -123,13 +131,41 @@ describe("Scanner API integration", () => {
     expect(body.status).toBe("QUEUED");
   });
 
+  it("POST /scan without scanType defaults to all", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/scan",
+      payload: {
+        targetId: "staging",
+        requestedBy: "test",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.scanType).toBe("all");
+  });
+
+  it("POST /scan with invalid scanType returns 400", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/scan",
+      payload: {
+        targetId: "staging",
+        scanType: "bogus",
+        requestedBy: "test",
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe("INVALID_SCAN_TYPE");
+  });
+
   it("GET /jobs/:jobId returns the job", async () => {
     const scanRes = await app.inject({
       method: "POST",
       url: "/scan",
       payload: {
         targetId: "staging",
-        profileId: "headers",
+        scanType: "headers",
         requestedBy: "test",
       },
     });
@@ -169,7 +205,7 @@ describe("Scanner API integration", () => {
     // Manually set a job to RUNNING
     const jobId = "rate-limit-test-" + Date.now();
     db.prepare(
-      "INSERT INTO jobs (id, target_id, profile_id, status, requested_by) VALUES (?, ?, ?, 'RUNNING', ?)",
+      "INSERT INTO jobs (id, target_id, scan_type, status, requested_by) VALUES (?, ?, ?, 'RUNNING', ?)",
     ).run(jobId, "staging", "headers", "test");
 
     const res = await app.inject({
@@ -177,7 +213,7 @@ describe("Scanner API integration", () => {
       url: "/scan",
       payload: {
         targetId: "staging",
-        profileId: "headers",
+        scanType: "headers",
         requestedBy: "test",
       },
     });
@@ -203,7 +239,7 @@ describe("Full scan flow", () => {
       url: "/scan",
       payload: {
         targetId: "staging",
-        profileId: "headers",
+        scanType: "headers",
         requestedBy: "test",
       },
     });

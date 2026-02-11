@@ -17,7 +17,7 @@ export async function handleHistory(
     const lines = [`Recent scans (${jobs.length} of ${total}):`];
     for (const job of jobs) {
       lines.push(
-        `\n• ${job.jobId.slice(0, 8)}… | ${job.targetId}/${job.profileId} | ${job.status} | ${job.createdAt}`,
+        `\n• ${job.jobId.slice(0, 8)}… | ${job.targetId}/${job.scanType} | ${job.status} | ${job.createdAt}`,
       );
     }
 

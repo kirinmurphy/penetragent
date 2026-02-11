@@ -1,4 +1,10 @@
-import type { JobPublic, JobListResponse } from "@pentegent/shared";
+import type { JobPublic, JobListResponse } from "@penetragent/shared";
+
+export interface TargetInfo {
+  id: string;
+  base_url: string;
+  description: string | null;
+}
 
 export class ScannerUnavailableError extends Error {
   constructor(message: string) {
@@ -33,15 +39,31 @@ export class ScannerClient {
     return res.json() as Promise<{ ok: boolean }>;
   }
 
+  async listTargets(): Promise<TargetInfo[]> {
+    const res = await this.fetch("/targets");
+    if (!res.ok) {
+      throw new ScannerApiError(res.status, await res.text());
+    }
+    const body = (await res.json()) as { targets: TargetInfo[] };
+    return body.targets;
+  }
+
   async createScan(
-    targetId: string,
-    profileId: string,
+    target: string,
     requestedBy: string,
+    scanType?: string,
   ): Promise<JobPublic> {
+    const isUrl = target.startsWith("http://") || target.startsWith("https://");
+    const body: Record<string, string> = isUrl
+      ? { url: target, requestedBy }
+      : { targetId: target, requestedBy };
+    if (scanType) {
+      body.scanType = scanType;
+    }
     const res = await this.fetch("/scan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetId, profileId, requestedBy }),
+      body: JSON.stringify(body),
     });
 
     if (res.status === 429) {
@@ -68,10 +90,13 @@ export class ScannerClient {
   async listJobs(
     limit = 10,
     offset = 0,
+    status?: string,
   ): Promise<JobListResponse> {
-    const res = await this.fetch(
-      `/jobs?limit=${limit}&offset=${offset}`,
-    );
+    let url = `/jobs?limit=${limit}&offset=${offset}`;
+    if (status) {
+      url += `&status=${encodeURIComponent(status)}`;
+    }
+    const res = await this.fetch(url);
     if (!res.ok) {
       throw new ScannerApiError(res.status, await res.text());
     }

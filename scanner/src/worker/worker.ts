@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type Database from "better-sqlite3";
-import type { ScannerConfig } from "@pentegent/shared";
+import type { ScannerConfig } from "@penetragent/shared";
 import {
   findRunningJob,
   findOldestQueued,
@@ -8,7 +8,7 @@ import {
   updateHeartbeat,
 } from "../services/job-service.js";
 import { getTarget } from "../services/target-service.js";
-import { executeProfile } from "./execute-profile.js";
+import { executeScan } from "./execute-scan.js";
 
 export function startWorker(
   db: Database.Database,
@@ -43,7 +43,7 @@ export function startWorker(
         throw new Error(`Target ${queued.target_id} not found`);
       }
 
-      await executeProfile(db, config, queued, target);
+      await executeScan(db, config, queued, target);
       console.log(`Job ${queued.id} → SUCCEEDED`);
     } catch (err) {
       console.error("Worker error:", err);

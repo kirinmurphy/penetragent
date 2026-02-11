@@ -1,4 +1,4 @@
-import type { ScannerConfig } from "@pentegent/shared";
+import type { ScannerConfig } from "@penetragent/shared";
 
 export function loadConfig(): ScannerConfig {
   return {

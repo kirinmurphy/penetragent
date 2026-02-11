@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
-import type { ScannerConfig } from "@pentegent/shared";
-import { ErrorCode } from "@pentegent/shared";
+import type { ScannerConfig } from "@penetragent/shared";
+import { ErrorCode, SCAN_TYPES } from "@penetragent/shared";
+import type { ScanTypeId } from "@penetragent/shared";
 import {
   transitionToSucceeded,
   transitionToFailed,
@@ -14,7 +15,21 @@ import {
 } from "../security/verify-public-only.js";
 import { runHeadersScan } from "../profiles/headers.js";
 
-export async function executeProfile(
+async function runScanType(
+  scanType: ScanTypeId,
+  baseUrl: string,
+  reportsDir: string,
+  jobId: string,
+): Promise<unknown> {
+  switch (scanType) {
+    case "headers": {
+      const { summary } = await runHeadersScan(baseUrl, reportsDir, jobId);
+      return summary;
+    }
+  }
+}
+
+export async function executeScan(
   db: Database.Database,
   config: ScannerConfig,
   job: JobRow,
@@ -36,24 +51,24 @@ export async function executeProfile(
   }
 
   try {
-    switch (job.profile_id) {
-      case "headers": {
-        const { summary } = await runHeadersScan(
-          target.base_url,
-          config.reportsDir,
-          job.id,
-        );
-        transitionToSucceeded(db, job.id, JSON.stringify(summary));
-        break;
-      }
-      default:
-        transitionToFailed(
-          db,
-          job.id,
-          ErrorCode.SCAN_EXECUTION_FAILED,
-          `Unknown profile: ${job.profile_id}`,
-        );
+    const typesToRun: ScanTypeId[] =
+      job.scan_type === "all"
+        ? (Object.keys(SCAN_TYPES) as ScanTypeId[])
+        : [job.scan_type as ScanTypeId];
+
+    const results: Record<string, unknown> = {};
+    for (const scanType of typesToRun) {
+      results[scanType] = await runScanType(
+        scanType,
+        target.base_url,
+        config.reportsDir,
+        job.id,
+      );
     }
+
+    // If only one scan type ran, use its result directly for backward compat
+    const summary = typesToRun.length === 1 ? results[typesToRun[0]] : results;
+    transitionToSucceeded(db, job.id, JSON.stringify(summary));
   } catch (err) {
     transitionToFailed(
       db,

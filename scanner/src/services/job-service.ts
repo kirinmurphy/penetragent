@@ -1,11 +1,11 @@
 import crypto from "node:crypto";
 import type Database from "better-sqlite3";
-import type { JobPublic } from "@pentegent/shared";
+import type { JobPublic } from "@penetragent/shared";
 
 export interface JobRow {
   id: string;
   target_id: string;
-  profile_id: string;
+  scan_type: string;
   status: string;
   requested_by: string;
   worker_id: string | null;
@@ -23,14 +23,14 @@ export interface JobRow {
 export function createJob(
   db: Database.Database,
   targetId: string,
-  profileId: string,
+  scanType: string,
   requestedBy: string,
 ): string {
   const id = crypto.randomUUID();
   db.prepare(
-    `INSERT INTO jobs (id, target_id, profile_id, requested_by)
+    `INSERT INTO jobs (id, target_id, scan_type, requested_by)
      VALUES (?, ?, ?, ?)`,
-  ).run(id, targetId, profileId, requestedBy);
+  ).run(id, targetId, scanType, requestedBy);
   return id;
 }
 
@@ -47,13 +47,29 @@ export function listJobs(
   db: Database.Database,
   limit: number,
   offset: number,
+  status?: string,
 ): { jobs: JobRow[]; total: number } {
-  const jobs = db
-    .prepare("SELECT * FROM jobs ORDER BY created_at DESC LIMIT ? OFFSET ?")
-    .all(limit, offset) as JobRow[];
-  const { total } = db
-    .prepare("SELECT COUNT(*) as total FROM jobs")
-    .get() as { total: number };
+  let query = "SELECT * FROM jobs";
+  let countQuery = "SELECT COUNT(*) as total FROM jobs";
+  const params: (string | number)[] = [];
+  const countParams: string[] = [];
+
+  if (status) {
+    const statuses = status.split(",").map((s) => s.trim());
+    const placeholders = statuses.map(() => "?").join(",");
+    query += ` WHERE status IN (${placeholders})`;
+    countQuery += ` WHERE status IN (${placeholders})`;
+    params.push(...statuses);
+    countParams.push(...statuses);
+  }
+
+  query += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+  params.push(limit, offset);
+
+  const jobs = db.prepare(query).all(...params) as JobRow[];
+  const { total } = db.prepare(countQuery).get(...countParams) as {
+    total: number;
+  };
   return { jobs, total };
 }
 
@@ -156,7 +172,7 @@ export function toJobPublic(row: JobRow): JobPublic {
   return {
     jobId: row.id,
     targetId: row.target_id,
-    profileId: row.profile_id,
+    scanType: row.scan_type,
     status: row.status as JobPublic["status"],
     requestedBy: row.requested_by,
     errorCode: row.error_code,

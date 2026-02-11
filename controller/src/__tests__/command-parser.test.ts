@@ -66,7 +66,7 @@ describe("parseCommand", () => {
     for (const cmd of [
       "help",
       "targets",
-      "profiles",
+      "scantypes",
       "scan",
       "status",
       "history",

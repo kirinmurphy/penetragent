@@ -9,17 +9,10 @@ export function migrate(db: Database.Database): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS profiles (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      description TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
     CREATE TABLE IF NOT EXISTS jobs (
       id TEXT PRIMARY KEY,
       target_id TEXT NOT NULL REFERENCES targets(id),
-      profile_id TEXT NOT NULL REFERENCES profiles(id),
+      scan_type TEXT NOT NULL DEFAULT 'all',
       status TEXT NOT NULL DEFAULT 'QUEUED',
       requested_by TEXT NOT NULL,
       worker_id TEXT,

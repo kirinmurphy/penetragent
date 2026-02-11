@@ -10,11 +10,18 @@ services:
       - ../shared/src:/app/shared/src
       - ../scanner/src:/app/scanner/src
       - scanner-data:/data
+    stop_grace_period: 5s
     environment:
       - SCANNER_PORT=8080
       - SCANNER_HOST=0.0.0.0
       - DB_PATH=/data/scanner.sqlite
       - REPORTS_DIR=/data/reports
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8080/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 10s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
 
   controller:
     build:
@@ -26,3 +33,4 @@ services:
     volumes:
       - ../shared/src:/app/shared/src
       - ../controller/src:/app/controller/src
+    stop_grace_period: 5s

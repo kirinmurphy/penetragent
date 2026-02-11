@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import type { ScannerConfig } from "@pentegent/shared";
+import type { ScannerConfig } from "@penetragent/shared";
 
 declare module "fastify" {
   interface FastifyInstance {

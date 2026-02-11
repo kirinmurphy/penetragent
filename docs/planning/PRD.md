@@ -23,7 +23,7 @@ You want a repeatable way to test what a malicious public user can do to your ap
 * **DM-only control** via Telegram; only you can issue commands.
 * **Public URLs only**: scan the same URLs a public user hits (through Cloudflare/Traefik if present).
 * **Tool-capped behavior**: only a small set of explicit actions (start scan, check status, deliver report).
-* **Strong scope control**: `targetId` maps to a fixed allowlisted public URL; no arbitrary URL input.
+* **Flexible scope control**: scan by `targetId` (pre-registered allowlist) or by direct `url` (auto-registered as an ad-hoc target using the hostname). The SSRF sanity check enforces public-only regardless of how the target was specified.
 * **Model-agnostic design**: core scan/job machinery is deterministic with no LLM dependency. Optional LLM enrichment (report summarization, finding analysis) sits behind a provider interface so you can swap models (OpenAI, Anthropic, Ollama, etc.) or run fully offline.
 * **Learning-first implementation**: milestones that teach agent fundamentals (interfaces, tools, policies, job state, isolation, ops).
 
@@ -56,13 +56,14 @@ You want a repeatable way to test what a malicious public user can do to your ap
 * `status <jobId>` — job status
 * `history [n]` — recent jobs (optional but recommended)
 
-#### 6.2 Targets (allowlist)
+#### 6.2 Targets
 
-* Targets are **IDs** mapped to **fixed HTTPS hostnames**, e.g.:
+Targets can be specified two ways:
 
-  * `staging` → `https://staging.example.com`
-  * `prod` → `https://www.example.com`
-* The operator may not provide arbitrary URLs in commands.
+* **By ID (pre-registered)**: `targetId` maps to a fixed URL in the database, e.g. `staging` → `https://staging.example.com`. Seeded at startup or added via future API.
+* **By URL (ad-hoc)**: A `url` field can be passed directly to `POST /scan`. The scanner auto-registers it as a target using the hostname as the ID, so re-scanning the same domain reuses the record.
+
+In both cases, the SSRF sanity check (Resolve→Normalize→Verify) runs before any outbound HTTP request. The safety boundary is the DNS/IP check, not the target allowlist.
 
 #### 6.3 Profiles (allowlist)
 
@@ -137,13 +138,14 @@ If using OWASP ZAP baseline scan, it runs a spider then passive scanning and exp
 
 ### 8) Security requirements (hard constraints)
 
-#### 8.1 Positive security only (membership checks)
+#### 8.1 Input validation
 
-* Inputs are validated only by allowlist membership:
-
-  * `targetId` must exist
-  * `profileId` must exist
-* No URL sanitization logic is relied upon for safety.
+* `profileId` must exist in the profiles table.
+* Targets are resolved one of two ways:
+  * `targetId` must exist in the targets table, OR
+  * `url` must be a valid URL (auto-registered as an ad-hoc target).
+  * At least one of `targetId` or `url` must be provided.
+* The primary safety boundary is **not** the target allowlist — it's the DNS/IP sanity check that runs before any outbound HTTP request.
 
 #### 8.2 Public-only hard boundary: "Resolve → Verify → Normalize → Log & Abort"
 
@@ -259,8 +261,13 @@ Monorepo structure (share types/schemas):
 
 ### 12) Scanner API
 
-* `POST /scan` → `{ targetId, profileId }` → `{ jobId }`
-* `GET /jobs/:jobId` → `{ status, statusReason?, errorCode?, summary?, reportPath? }`
+* `POST /scan` → `{ targetId?, url?, profileId, requestedBy }` → `{ jobId, status, ... }`
+  * Provide `targetId` to scan a pre-registered target, or `url` to scan any public URL (at least one required).
+  * Returns 201 with full job object on success.
+  * Returns 429 with `{ error: "RATE_LIMITED", runningJobId }` if a job is already running.
+  * Returns 404 if `targetId` or `profileId` not found.
+* `GET /jobs/:jobId` → full job object (status, summary, errors, resolved IPs, timestamps)
+* `GET /jobs?limit=N&offset=0` → paginated job list
 
 ---
 
@@ -302,10 +309,16 @@ Monorepo structure (share types/schemas):
 
 ### 17) Test strategy
 
-* **Unit tests (critical):** sanity check — cover IPv4 private ranges, IPv6 ULA, IPv6 loopback, IPv4-mapped IPv6, public IPs, dual-stack hosts, DNS-no-results. This is the most important code to test.
-* **Unit tests:** command parser, job state transitions, schema validation.
-* **Integration test:** boot both services via compose, run `POST /scan` → poll → confirm `SUCCEEDED` and artifacts exist.
-* **Reconciliation test:** start a job, kill scanner mid-run, restart, confirm `FAILED_ON_RESTART`.
+* **Unit tests (80 total):**
+  * Sanity check (17 tests) — IPv4 private ranges, IPv6 ULA/loopback/link-local, IPv4-mapped IPv6, CGNAT, public IPs, dual-stack, mixed, empty results.
+  * Headers grading (26 tests) — every grading function with isolated string inputs.
+  * Job service (9 tests) — state transitions, pagination, reconciliation.
+  * Schema validation (16 tests) — ScanRequest (targetId, url, both, neither), JobPublic, JobListQuery.
+  * Command parser (12 tests) — valid commands, `/` prefix, case, whitespace, unknown.
+* **Integration tests (49 total):**
+  * Scanner API (9 tests) — health, POST /scan, GET /jobs, 404s, rate limiting, full scan flow with worker.
+  * Reconciliation (3 tests) — stale jobs marked FAILED_ON_RESTART, fresh jobs untouched, multiple stale.
+  * Headers scan end-to-end (37 tests) — real Fastify servers with specific header configurations. Every grading outcome for every header (HSTS: 5, CSP: 5, XCTO: 3, XFO: 4, RP: 4, PP: 2), info leakage (4), redirect chains (4), summary counts (4), report artifacts (2).
 
 ---
 

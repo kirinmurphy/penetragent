@@ -1,8 +1,7 @@
 # How It Works
 
-Architecture and flow diagrams for the Pentegent pentest agent.
+Architecture and flow diagrams for the Penetragent pentest agent.
 
-0. [Overview](../../README.md) — What Pentegent does, in plain English
 1. [Monorepo Structure](./01-monorepo-structure.md) — Package layout and dependency graph
 2. [Scan Workflow](./02-scan-workflow.md) — End-to-end sequence from Telegram command to result, plus job state machine
 3. [SSRF Prevention](./03-ssrf-prevention.md) — DNS resolution and IP range validation gate

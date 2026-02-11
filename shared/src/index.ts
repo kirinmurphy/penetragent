@@ -1,5 +1,5 @@
-export { JobStatus, TERMINAL_STATUSES, ErrorCode } from "./types.js";
-export type { JobStatusType, ErrorCodeType } from "./types.js";
+export { JobStatus, TERMINAL_STATUSES, ErrorCode, SCAN_TYPES } from "./types.js";
+export type { JobStatusType, ErrorCodeType, ScanTypeId } from "./types.js";
 
 export {
   ScanRequestSchema,

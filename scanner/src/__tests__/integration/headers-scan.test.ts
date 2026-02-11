@@ -81,7 +81,7 @@ let reportsDir: string;
 let serversToClose: FastifyInstance[] = [];
 
 function tmpReportsDir(): string {
-  reportsDir = path.join(os.tmpdir(), `pentegent-test-${crypto.randomUUID()}`);
+  reportsDir = path.join(os.tmpdir(), `penetragent-test-${crypto.randomUUID()}`);
   fs.mkdirSync(reportsDir, { recursive: true });
   return reportsDir;
 }

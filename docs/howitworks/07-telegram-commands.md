@@ -18,8 +18,8 @@ flowchart TD
 
     HELP["help<br/>Show command list"]:::command
     TARGETS["targets<br/>List scan targets"]:::command
-    PROFILES["profiles<br/>List scan profiles"]:::command
-    SCAN["scan targetId profileId"]:::command
+    SCANTYPES["scantypes<br/>List scan types"]:::command
+    SCAN["scan &lt;url&gt; [scanType]<br/>e.g. scan https://example.com"]:::command
     STATUS["status jobId"]:::command
     HISTORY["history"]:::command
 
@@ -40,7 +40,7 @@ flowchart TD
     KNOWN -- "No" --> UNKNOWN
     KNOWN -- "help" --> HELP
     KNOWN -- "targets" --> TARGETS
-    KNOWN -- "profiles" --> PROFILES
+    KNOWN -- "scantypes" --> SCANTYPES
     KNOWN -- "scan" --> SCAN
     KNOWN -- "status" --> STATUS
     KNOWN -- "history" --> HISTORY

@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import Database from "better-sqlite3";
 import { migrate } from "../db/migrate.js";
-import { seed } from "../db/seed.js";
 import {
   createJob,
   getJob,
@@ -19,7 +18,12 @@ function createTestDb(): Database.Database {
   const db = new Database(":memory:");
   db.pragma("foreign_keys = ON");
   migrate(db);
-  seed(db);
+  db.prepare(
+    "INSERT INTO targets (id, base_url, description) VALUES (?, ?, ?)",
+  ).run("staging", "https://staging.example.com", "Test staging");
+  db.prepare(
+    "INSERT INTO targets (id, base_url, description) VALUES (?, ?, ?)",
+  ).run("prod", "https://prod.example.com", "Test prod");
   return db;
 }
 
@@ -36,7 +40,7 @@ describe("job-service", () => {
     expect(job).toBeDefined();
     expect(job!.status).toBe("QUEUED");
     expect(job!.target_id).toBe("staging");
-    expect(job!.profile_id).toBe("headers");
+    expect(job!.scan_type).toBe("headers");
     expect(job!.requested_by).toBe("user1");
   });
 

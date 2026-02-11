@@ -10,7 +10,6 @@ flowchart TD
 
     BOOT["Scanner starts<br/>index.ts main()"]:::startup
     MIGRATE["migrate(db)<br/>CREATE TABLE IF NOT EXISTS"]:::startup
-    SEED["seed(db)<br/>Insert default targets + profiles"]:::startup
     RECONCILE["reconcileStaleJobs(db)<br/>Check for RUNNING jobs with<br/>stale heartbeat"]:::recovery
 
     STALE{Stale jobs<br/>found?}:::recovery
@@ -26,7 +25,7 @@ flowchart TD
     CLAIM["transitionToRunning<br/>Set worker_id, started_at"]:::normal
     HB_START["Start heartbeat timer<br/>every heartbeatIntervalMs"]:::heartbeat
     HB_TICK["UPDATE last_heartbeat_at<br/>= NOW"]:::heartbeat
-    EXECUTE["executeProfile(job, target)"]:::normal
+    EXECUTE["executeScan(job, target)"]:::normal
     HB_STOP["clearInterval heartbeat"]:::normal
     DONE["Job terminal state"]:::normal
 
@@ -34,7 +33,7 @@ flowchart TD
     RESTART["Scanner restarts"]:::crash
     DETECT["Reconcile detects<br/>last_heartbeat_at > threshold"]:::recovery
 
-    BOOT --> MIGRATE --> SEED --> RECONCILE
+    BOOT --> MIGRATE --> RECONCILE
     RECONCILE --> STALE
     STALE -- "Yes" --> MARK --> START_WORKER
     STALE -- "No" --> START_WORKER

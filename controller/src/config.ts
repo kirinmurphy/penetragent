@@ -1,4 +1,4 @@
-import type { ControllerConfig } from "@pentegent/shared";
+import type { ControllerConfig } from "@penetragent/shared";
 
 export function loadConfig(): ControllerConfig {
   const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;

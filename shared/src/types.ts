@@ -14,10 +14,16 @@ export const TERMINAL_STATUSES = new Set<JobStatusType>([
   JobStatus.FAILED_ON_RESTART,
 ]);
 
+export const SCAN_TYPES = {
+  headers: { name: "HTTP Security Headers", description: "Checks HTTP security headers and grades them" },
+} as const;
+
+export type ScanTypeId = keyof typeof SCAN_TYPES;
+
 export const ErrorCode = {
   RATE_LIMITED: "RATE_LIMITED",
   TARGET_NOT_FOUND: "TARGET_NOT_FOUND",
-  PROFILE_NOT_FOUND: "PROFILE_NOT_FOUND",
+  INVALID_SCAN_TYPE: "INVALID_SCAN_TYPE",
   JOB_NOT_FOUND: "JOB_NOT_FOUND",
   PRIVATE_RANGE_RESTRICTED: "PRIVATE_RANGE_RESTRICTED",
   DNS_NO_RESULTS: "DNS_NO_RESULTS",

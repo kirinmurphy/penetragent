@@ -1,23 +1,19 @@
 # Database Schema
 
+Targets are auto-registered when a `url` is passed to `POST /scan` (the hostname becomes the ID). No targets are seeded at startup.
+
 ```mermaid
 erDiagram
     TARGETS {
-        TEXT id PK "e.g. staging, prod"
+        TEXT id PK "hostname from URL, e.g. example.com"
         TEXT base_url "https://example.com"
-        TEXT description
-        TEXT created_at
-    }
-    PROFILES {
-        TEXT id PK "e.g. headers"
-        TEXT name "HTTP Security Headers"
         TEXT description
         TEXT created_at
     }
     JOBS {
         TEXT id PK "UUID"
         TEXT target_id FK
-        TEXT profile_id FK
+        TEXT scan_type "all|headers (default: all)"
         TEXT status "QUEUED|RUNNING|SUCCEEDED|FAILED|FAILED_ON_RESTART"
         TEXT requested_by "Telegram user ID"
         TEXT worker_id "UUID of worker process"
@@ -33,5 +29,4 @@ erDiagram
     }
 
     TARGETS ||--o{ JOBS : "scanned by"
-    PROFILES ||--o{ JOBS : "executed as"
 ```

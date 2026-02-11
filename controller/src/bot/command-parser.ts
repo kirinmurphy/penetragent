@@ -6,7 +6,7 @@ export interface ParsedCommand {
 const KNOWN_COMMANDS = new Set([
   "help",
   "targets",
-  "profiles",
+  "scantypes",
   "scan",
   "status",
   "history",

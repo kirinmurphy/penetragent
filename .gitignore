@@ -8,3 +8,5 @@ dist/
 /data/
 reports/
 .claude/settings.local.json
+
+.DS_Store

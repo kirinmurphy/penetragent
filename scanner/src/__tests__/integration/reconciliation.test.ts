@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import Database from "better-sqlite3";
 import { migrate } from "../../db/migrate.js";
-import { seed } from "../../db/seed.js";
 import {
   createJob,
   getJob,
@@ -9,12 +8,21 @@ import {
   markStaleJobsAsFailed,
 } from "../../services/job-service.js";
 
+function seedTestTargets(db: Database.Database): void {
+  db.prepare(
+    "INSERT INTO targets (id, base_url, description) VALUES (?, ?, ?)",
+  ).run("staging", "https://staging.example.com", "Test staging");
+  db.prepare(
+    "INSERT INTO targets (id, base_url, description) VALUES (?, ?, ?)",
+  ).run("prod", "https://prod.example.com", "Test prod");
+}
+
 describe("Reconciliation integration", () => {
   it("marks stale RUNNING jobs as FAILED_ON_RESTART", () => {
     const db = new Database(":memory:");
     db.pragma("foreign_keys = ON");
     migrate(db);
-    seed(db);
+    seedTestTargets(db);
 
     // Create a job and transition to RUNNING
     const jobId = createJob(db, "staging", "headers", "test");
@@ -40,7 +48,7 @@ describe("Reconciliation integration", () => {
     const db = new Database(":memory:");
     db.pragma("foreign_keys = ON");
     migrate(db);
-    seed(db);
+    seedTestTargets(db);
 
     const queuedId = createJob(db, "staging", "headers", "test");
     const runningId = createJob(db, "staging", "headers", "test");
@@ -64,7 +72,7 @@ describe("Reconciliation integration", () => {
     const db = new Database(":memory:");
     db.pragma("foreign_keys = ON");
     migrate(db);
-    seed(db);
+    seedTestTargets(db);
 
     const id1 = createJob(db, "staging", "headers", "test");
     transitionToRunning(db, id1, "worker1");

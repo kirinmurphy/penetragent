@@ -1,17 +1,22 @@
 import { Bot } from "grammy";
-import type { ControllerConfig } from "@pentegent/shared";
+import type { ControllerConfig } from "@penetragent/shared";
 import { allowlistMiddleware } from "./middleware/allowlist.js";
 import { parseCommand } from "./command-parser.js";
 import { handleHelp } from "./commands/help.js";
 import { handleTargets } from "./commands/targets.js";
-import { handleProfiles } from "./commands/profiles.js";
+import { handleScanTypes } from "./commands/scantypes.js";
 import { handleScan } from "./commands/scan.js";
 import { handleStatus } from "./commands/status.js";
 import { handleHistory } from "./commands/history.js";
 import { ScannerClient } from "../scanner-client/client.js";
 import { JobPoller } from "../poller/job-poller.js";
 
-export function createBot(config: ControllerConfig): Bot {
+export interface BotContext {
+  bot: Bot;
+  poller: JobPoller;
+}
+
+export function createBot(config: ControllerConfig): BotContext {
   const bot = new Bot(config.telegramBotToken);
   const client = new ScannerClient(config.scannerBaseUrl);
   const poller = new JobPoller(
@@ -39,8 +44,8 @@ export function createBot(config: ControllerConfig): Bot {
       case "targets":
         await handleTargets(ctx, client);
         break;
-      case "profiles":
-        await handleProfiles(ctx);
+      case "scantypes":
+        await handleScanTypes(ctx);
         break;
       case "scan":
         await handleScan(ctx, parsed.args, client, poller);
@@ -54,5 +59,5 @@ export function createBot(config: ControllerConfig): Bot {
     }
   });
 
-  return bot;
+  return { bot, poller };
 }

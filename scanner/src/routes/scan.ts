@@ -1,7 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import { ScanRequestSchema, ErrorCode } from "@pentegent/shared";
+import { ScanRequestSchema, ErrorCode, SCAN_TYPES } from "@penetragent/shared";
 import { getTarget, upsertTarget } from "../services/target-service.js";
-import { getProfile } from "../services/profile-service.js";
 import {
   createJob,
   findRunningJob,
@@ -19,7 +18,12 @@ export async function scanRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    const { profileId, requestedBy } = parsed.data;
+    const { requestedBy } = parsed.data;
+    const scanType = parsed.data.scanType ?? "all";
+
+    if (scanType !== "all" && !(scanType in SCAN_TYPES)) {
+      return reply.status(400).send({ error: ErrorCode.INVALID_SCAN_TYPE });
+    }
 
     let targetId: string;
     if (parsed.data.url) {
@@ -33,11 +37,6 @@ export async function scanRoutes(app: FastifyInstance): Promise<void> {
       }
     }
 
-    const profile = getProfile(app.db, profileId);
-    if (!profile) {
-      return reply.status(404).send({ error: ErrorCode.PROFILE_NOT_FOUND });
-    }
-
     const running = findRunningJob(app.db);
     if (running) {
       return reply.status(429).send({
@@ -46,7 +45,7 @@ export async function scanRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    const jobId = createJob(app.db, targetId, profileId, requestedBy);
+    const jobId = createJob(app.db, targetId, scanType, requestedBy);
     const job = getJob(app.db, jobId)!;
 
     return reply.status(201).send(toJobPublic(job));

@@ -1,5 +1,5 @@
 {
-  "name": "pentegent",
+  "name": "penetragent",
   "private": true,
   "workspaces": [
     "shared",
@@ -9,6 +9,8 @@
   "scripts": {
     "build": "npm run build -w shared && npm run build -w scanner && npm run build -w controller",
     "test": "npm test -w shared -w scanner -w controller",
+    "test:unit": "npm test -w shared -w controller && npm run test:unit -w scanner",
+    "test:integration": "npm run test:integration -w scanner",
     "docker:dev": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up --build",
     "docker:prod": "docker compose -f infra/docker-compose.yml up --build",
     "docker:down": "docker compose -f infra/docker-compose.yml down"

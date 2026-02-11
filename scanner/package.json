@@ -1,5 +1,5 @@
 {
-  "name": "@pentegent/scanner",
+  "name": "@penetragent/scanner",
   "version": "0.0.1",
   "private": true,
   "main": "dist/index.js",
@@ -7,14 +7,15 @@
     "build": "tsc",
     "dev": "npx tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "test": "vitest run",
+    "test": "vitest run && vitest run --config vitest.integration.config.ts",
+    "test:unit": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "fastify": "^5.0.0",
     "better-sqlite3": "^11.0.0",
     "ipaddr.js": "^2.2.0",
-    "@pentegent/shared": "*"
+    "@penetragent/shared": "*"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

@@ -1,13 +1,14 @@
 import type { Context } from "grammy";
-import { TERMINAL_STATUSES } from "@pentegent/shared";
-import type { JobPublic } from "@pentegent/shared";
+import { TERMINAL_STATUSES } from "@penetragent/shared";
+import type { JobPublic } from "@penetragent/shared";
 import type { ScannerClient } from "../../scanner-client/client.js";
+import { handleCommandError } from "../utils/error-handler.js";
 
 function formatJob(job: JobPublic): string {
   const lines = [
     `Job: ${job.jobId}`,
     `Target: ${job.targetId}`,
-    `Profile: ${job.profileId}`,
+    `Scan Type: ${job.scanType}`,
     `Status: ${job.status}`,
     `Created: ${job.createdAt}`,
   ];
@@ -34,6 +35,13 @@ function formatJob(job: JobPublic): string {
         lines.push(`  ${key}: ${value}`);
       }
     }
+
+    lines.push("");
+    lines.push("Note:");
+    lines.push("  • good = headers properly configured");
+    lines.push("  • weak = headers present but not optimal");
+    lines.push("  • missing = security headers not found");
+    lines.push("  • infoLeakage = headers revealing server details");
   }
 
   return lines.join("\n");
@@ -55,7 +63,7 @@ export async function handleStatus(
     await ctx.api.sendChatAction(ctx.chat!.id, "typing");
     const job = await client.getJob(jobId);
     await ctx.reply(formatJob(job));
-  } catch {
-    await ctx.reply(`Could not find job: ${jobId}`);
+  } catch (err) {
+    await handleCommandError(ctx, err, `Could not find job: ${jobId}`);
   }
 }

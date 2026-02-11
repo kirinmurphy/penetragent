@@ -9,7 +9,7 @@ describe("ScanRequestSchema", () => {
   it("accepts a valid scan request", () => {
     const result = ScanRequestSchema.safeParse({
       targetId: "staging",
-      profileId: "headers",
+      scanType: "headers",
       requestedBy: "123",
     });
     expect(result.success).toBe(true);
@@ -18,7 +18,7 @@ describe("ScanRequestSchema", () => {
   it("accepts a url instead of targetId", () => {
     const result = ScanRequestSchema.safeParse({
       url: "https://example.com",
-      profileId: "headers",
+      scanType: "headers",
       requestedBy: "123",
     });
     expect(result.success).toBe(true);
@@ -28,7 +28,7 @@ describe("ScanRequestSchema", () => {
     const result = ScanRequestSchema.safeParse({
       targetId: "staging",
       url: "https://example.com",
-      profileId: "headers",
+      scanType: "headers",
       requestedBy: "123",
     });
     expect(result.success).toBe(true);
@@ -36,7 +36,7 @@ describe("ScanRequestSchema", () => {
 
   it("rejects when neither targetId nor url provided", () => {
     const result = ScanRequestSchema.safeParse({
-      profileId: "headers",
+      scanType: "headers",
       requestedBy: "123",
     });
     expect(result.success).toBe(false);
@@ -45,7 +45,7 @@ describe("ScanRequestSchema", () => {
   it("rejects empty targetId without url", () => {
     const result = ScanRequestSchema.safeParse({
       targetId: "",
-      profileId: "headers",
+      scanType: "headers",
       requestedBy: "123",
     });
     expect(result.success).toBe(false);
@@ -54,24 +54,24 @@ describe("ScanRequestSchema", () => {
   it("rejects invalid url", () => {
     const result = ScanRequestSchema.safeParse({
       url: "not-a-url",
-      profileId: "headers",
+      scanType: "headers",
       requestedBy: "123",
     });
     expect(result.success).toBe(false);
   });
 
-  it("rejects missing profileId", () => {
+  it("accepts request without scanType", () => {
     const result = ScanRequestSchema.safeParse({
       targetId: "staging",
       requestedBy: "123",
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it("rejects missing requestedBy", () => {
     const result = ScanRequestSchema.safeParse({
       targetId: "staging",
-      profileId: "headers",
+      scanType: "headers",
     });
     expect(result.success).toBe(false);
   });
@@ -81,7 +81,7 @@ describe("JobPublicSchema", () => {
   const validJob = {
     jobId: "550e8400-e29b-41d4-a716-446655440000",
     targetId: "staging",
-    profileId: "headers",
+    scanType: "headers",
     status: "QUEUED",
     requestedBy: "123",
     errorCode: null,
