@@ -1,18 +1,20 @@
 FROM node:20-slim AS builder
 
+# Install curl for healthchecks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copy root workspace files
+# Copy ONLY package files first (better caching - invalidates only when deps change)
 COPY package.json package-lock.json tsconfig.base.json ./
-
-# Copy workspace package.json files
 COPY shared/package.json shared/
 COPY scanner/package.json scanner/
 COPY controller/package.json controller/
 
-RUN npm ci
+# Install dependencies (this layer is cached unless package*.json changes)
+RUN --mount=type=cache,target=/root/.npm npm ci
 
-# Copy source
+# Copy source AFTER installing deps (source changes don't invalidate npm ci)
 COPY shared/ shared/
 COPY scanner/ scanner/
 

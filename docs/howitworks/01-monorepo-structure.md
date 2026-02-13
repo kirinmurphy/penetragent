@@ -17,7 +17,7 @@ graph TB
             S_DB["db/<br/>connection · migrate"]
             S_WORKER["worker/<br/>worker · execute-scan · reconcile"]
             S_SECURITY["security/<br/>verify-public-only"]
-            S_PROFILES["profiles/<br/>headers"]
+            S_SCANTYPES["scanTypes/<br/>headers · crawl"]
         end
 
         subgraph "controller/"
@@ -40,7 +40,7 @@ graph TB
     S_SERVICES --> S_DB
     S_WORKER --> S_SERVICES
     S_WORKER --> S_SECURITY
-    S_WORKER --> S_PROFILES
+    S_WORKER --> S_SCANTYPES
     C_BOT --> C_MW
     C_BOT --> C_CMDS
     C_CMDS --> C_CLIENT

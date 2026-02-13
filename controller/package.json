@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "dev": "npx tsx watch src/index.ts",
     "start": "node dist/index.js",
     "test": "vitest run"

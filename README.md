@@ -28,9 +28,13 @@ There are only two services:
 10. Results are saved to a JSON file and a summary is written to the database (status: SUCCEEDED)
 11. The bot's background poller sees the job is done and messages you the results
 
-## What It Checks (The Headers Scan Type)
+## Scan Types
 
-When you run a "headers" scan, it's answering these questions about the target website:
+Penetragent supports two scan types:
+
+### 1. Headers Scan (`headers`)
+
+A quick, single-page security check. When you run `scan https://example.com headers`, it's answering these questions about the target website:
 
 - **Is HTTPS enforced?** (Strict-Transport-Security) — Does the site tell browsers to always use encryption?
 - **Is JavaScript locked down?** (Content-Security-Policy) — Does the site restrict where scripts can load from?
@@ -39,6 +43,53 @@ When you run a "headers" scan, it's answering these questions about the target w
 - **Is referrer leakage controlled?** (Referrer-Policy) — Does the site leak full URLs when users click outbound links?
 - **Are browser features restricted?** (Permissions-Policy) — Does the site disable camera, microphone, etc. for embedded content?
 - **Is software version exposed?** (Server, X-Powered-By) — Can an attacker see what server software and version is running?
+
+### 2. Crawl Scan (`crawl`)
+
+A comprehensive, multi-page security audit. When you run `scan https://example.com crawl`, it:
+
+- **Crawls your site** — Discovers and follows up to 20 pages from your target domain
+- **Checks each page** — Tests every discovered page for security issues
+- **Identifies problems** — Detects missing headers, information disclosure, mixed content, and potential XSS patterns
+- **Reports critical findings** — Highlights the most important security gaps
+- **All passive** — No attacks, no exploitation, just observation and analysis
+
+The crawl scan provides broader coverage than the headers scan and is useful for getting a complete picture of your site's security posture.
+
+## Managing Scan History
+
+### View History
+
+**Recent scans (grouped by target):**
+```
+history           # Last 10 unique targets
+history 25        # Last 25 unique targets
+```
+
+**All scans for specific target:**
+```
+history example.com              # By hostname
+history https://example.com      # By URL
+```
+
+### Delete Scans
+
+**Delete specific scans:**
+```
+delete abc123-def456...          # Delete single job
+delete example.com               # Delete all scans for target
+delete all                       # Delete all scans
+```
+
+**All delete commands require confirmation:**
+```
+You: delete example.com
+Bot: This will permanently delete 5 scans for example.com.
+     Reply `confirm` within 60 seconds to proceed.
+
+You: confirm
+Bot: Deleted 5 scans for example.com
+```
 
 ## Safety Guards
 

@@ -34,14 +34,14 @@
 
   * `PRIVATE_RANGE_RESTRICTED`
   * `INVALID_TARGET`
-  * `INVALID_PROFILE`
+  * `INVALID_SCAN_TYPE`
   * `RATE_LIMITED`
   * `FAILED_ON_RESTART`
   * `INTERNAL_ERROR`
 
 ## Schemas (`shared/src/schemas.ts`)
 
-* `ScanRequest`: `{ targetId: string, profileId: string, requestedBy: string }`
+* `ScanRequest`: `{ targetId: string, scanType: string, requestedBy: string }`
 * `JobPublic`: fields returned by scanner API (id/status/timestamps/error/summary)
 
 Use a shared schema library (e.g. Zod) so controller+scanner validate the same shapes.
@@ -77,8 +77,8 @@ All commands are handled only if `from.id === TELEGRAM_ALLOWED_USER_ID`.
 ```
 Commands:
 targets
-profiles
-scan <targetId> <profileId>
+scantypes
+scan <targetId> <scanType>
 status <jobId>
 history [n]
 ```
@@ -91,14 +91,14 @@ Targets:
 - prod
 ```
 
-### `profiles` (M1–M3)
+### `scantypes` (M1–M3)
 
 ```
-Profiles:
+Scan Types:
 - headers
 ```
 
-### `scan <targetId> <profileId>`
+### `scan <targetId> <scanType>`
 
 Must return immediately (no waiting for scan completion):
 
@@ -106,7 +106,7 @@ Must return immediately (no waiting for scan completion):
 
 ```
 Job started: <jobId>
-target=<targetId> profile=<profileId>
+target=<targetId> scanType=<scanType>
 Use: status <jobId>
 ```
 
@@ -117,10 +117,10 @@ Use: status <jobId>
   ```
   Invalid target. Use: targets
   ```
-* Unknown profile:
+* Unknown scan type:
 
   ```
-  Invalid profile. Use: profiles
+  Invalid scan type. Use: scantypes
   ```
 * Rate limited (scan already running):
 
@@ -182,6 +182,8 @@ History:
 - <jobId> SUCCEEDED prod headers
 ```
 
+Note: `headers` refers to the scan type, which is stored in the job record as a string field.
+
 ---
 
 # Status machine (M2)
@@ -208,17 +210,11 @@ CREATE TABLE IF NOT EXISTS targets (
   enabled INTEGER NOT NULL DEFAULT 1
 );
 
-CREATE TABLE IF NOT EXISTS profiles (
-  id TEXT PRIMARY KEY,
-  enabled INTEGER NOT NULL DEFAULT 1,
-  config_json TEXT NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS jobs (
   id TEXT PRIMARY KEY,
   requested_by TEXT NOT NULL,
   target_id TEXT NOT NULL,
-  profile_id TEXT NOT NULL,
+  scan_type TEXT NOT NULL DEFAULT 'headers',
   status TEXT NOT NULL,
   error_code TEXT,
   status_reason TEXT,
@@ -230,8 +226,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   last_heartbeat_at TEXT,
   report_path TEXT,
   summary_json TEXT,
-  FOREIGN KEY(target_id) REFERENCES targets(id),
-  FOREIGN KEY(profile_id) REFERENCES profiles(id)
+  FOREIGN KEY(target_id) REFERENCES targets(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
@@ -241,7 +236,8 @@ CREATE INDEX IF NOT EXISTS idx_jobs_heartbeat ON jobs(last_heartbeat_at);
 Seed (on boot if empty):
 
 * `targets`: `staging`, `prod` (HTTPS hostnames)
-* `profiles`: `headers`
+
+Note: Scan types are defined in code (`shared/src/types.ts` → `SCAN_TYPES` constant), not in a database table.
 
 ---
 
@@ -264,13 +260,13 @@ Used by docker-compose health check and controller readiness polling.
 Request:
 
 ```json
-{ "targetId": "staging", "profileId": "headers", "requestedBy": "123456789" }
+{ "targetId": "staging", "scanType": "headers", "requestedBy": "123456789" }
 ```
 
 Behavior:
 
 1. Validate `targetId` exists + enabled.
-2. Validate `profileId` exists + enabled.
+2. Validate `scanType` exists in `SCAN_TYPES` constant (code-based validation).
 3. Create job with `status=QUEUED`.
 4. Return `{ jobId }` immediately.
 5. Worker processes queue.
@@ -278,7 +274,7 @@ Behavior:
 Errors:
 
 * 400 `{ "error": "INVALID_TARGET" }`
-* 400 `{ "error": "INVALID_PROFILE" }`
+* 400 `{ "error": "INVALID_SCAN_TYPE" }`
 * 429 `{ "error": "RATE_LIMITED", "runningJobId": "<id>" }`
 
 ## `GET /jobs/:jobId`
@@ -392,7 +388,7 @@ export const verifyPublicOnly = async (hostname: string) => {
 
 ---
 
-# M3 profile: `headers`
+# M3 scan type: `headers`
 
 ## Output boundaries (report hygiene)
 
@@ -506,6 +502,7 @@ networks:
 * Bot ignores all users except allowlisted Telegram ID.
 * `scan staging headers` responds immediately with `jobId`.
 * Controller does not block for scan completion.
+* `scantypes` command lists available scan types from code.
 
 ## M2
 
@@ -514,8 +511,9 @@ networks:
 
 ## M3
 
-* `headers` scan writes artifacts only under `REPORTS_DIR/<jobId>/`.
+* `headers` scan type writes artifacts only under `REPORTS_DIR/<jobId>/`.
 * Sanity check resolves all A/AAAA and fails on restricted ranges including IPv4-mapped IPv6 (e.g. `::ffff:192.168.1.1`).
+* Scan type validation happens in code (SCAN_TYPES constant), not via database lookup.
 
 ---
 

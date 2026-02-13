@@ -61,7 +61,7 @@ describe("JobPoller", () => {
 
       await poller.recoverInProgressJobs();
 
-      expect(mockClient.listJobs).toHaveBeenCalledWith(100, 0, "RUNNING,QUEUED");
+      expect(mockClient.listJobs).toHaveBeenCalledWith({ limit: 100, status: "RUNNING,QUEUED" });
       // Should start polling for the job
     });
 
@@ -93,7 +93,7 @@ describe("JobPoller", () => {
 
       await poller.recoverInProgressJobs();
 
-      expect(mockClient.listJobs).toHaveBeenCalledWith(100, 0, "RUNNING,QUEUED");
+      expect(mockClient.listJobs).toHaveBeenCalledWith({ limit: 100, status: "RUNNING,QUEUED" });
     });
 
     it("should ignore SUCCEEDED jobs", async () => {
@@ -173,7 +173,7 @@ describe("JobPoller", () => {
 
       await poller.recoverInProgressJobs();
 
-      expect(mockClient.listJobs).toHaveBeenCalledWith(100, 0, "RUNNING,QUEUED");
+      expect(mockClient.listJobs).toHaveBeenCalledWith({ limit: 100, status: "RUNNING,QUEUED" });
     });
 
     it("should handle empty job list", async () => {
@@ -253,6 +253,51 @@ describe("JobPoller", () => {
       const chatId = 123456789;
 
       expect(() => poller.startPolling(jobId, chatId)).not.toThrow();
+    });
+
+    it("should format nested summary objects properly", async () => {
+      const jobId = "job-with-nested-summary";
+      const chatId = 123456789;
+
+      // Simulate a job with nested summary (like when running multiple scan types)
+      const completedJob: JobPublic = {
+        jobId,
+        targetId: "example.com",
+        scanType: "all",
+        status: JobStatus.SUCCEEDED,
+        requestedBy: "123456789",
+        errorCode: null,
+        errorMessage: null,
+        summaryJson: {
+          headers: { good: 3, weak: 1, missing: 2 },
+          crawl: { pagesScanned: 15, issuesFound: 8 },
+        },
+        resolvedIpsJson: null,
+        createdAt: "2024-01-01T00:00:00Z",
+        updatedAt: "2024-01-01T00:01:00Z",
+        startedAt: "2024-01-01T00:00:00Z",
+        finishedAt: "2024-01-01T00:01:00Z",
+      };
+
+      vi.mocked(mockClient.getJob).mockResolvedValue(completedJob);
+
+      poller.startPolling(jobId, chatId);
+
+      // Advance timer to trigger the poll
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(mockBot.api.sendMessage).toHaveBeenCalledOnce();
+
+      const [[actualChatId, actualMessage]] = vi.mocked(
+        mockBot.api.sendMessage,
+      ).mock.calls;
+
+      expect(actualChatId).toBe(chatId);
+
+      expect(actualMessage).toContain("headers:");
+      expect(actualMessage).toContain("crawl:");
+      expect(actualMessage).toMatch(/good.*3/);
+      expect(actualMessage).toMatch(/pagesScanned.*15/);
     });
   });
 });

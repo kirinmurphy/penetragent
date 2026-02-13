@@ -32,7 +32,6 @@ async function main(): Promise<void> {
   await app.listen({ port: config.port, host: config.host });
   console.log(`Server listening on ${config.host}:${config.port}`);
 
-  // Handle graceful shutdown
   const shutdown = async () => {
     console.log("Shutting down gracefully...");
     await app.close();

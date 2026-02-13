@@ -51,8 +51,8 @@ You want a repeatable way to test what a malicious public user can do to your ap
 
 * `help`
 * `targets` — list allowed targets
-* `profiles` — list allowed scan profiles
-* `scan <targetId> <profileId>` — create a job and start scan
+* `scantypes` — list available scan types
+* `scan <targetId> <scanType>` — create a job and start scan
 * `status <jobId>` — job status
 * `history [n]` — recent jobs (optional but recommended)
 
@@ -65,14 +65,14 @@ Targets can be specified two ways:
 
 In both cases, the SSRF sanity check (Resolve→Normalize→Verify) runs before any outbound HTTP request. The safety boundary is the DNS/IP check, not the target allowlist.
 
-#### 6.3 Profiles (allowlist)
+#### 6.3 Scan Types (code-based, not database)
 
-Start with two profiles:
+Scan types are defined in code (`shared/src/types.ts`) and dispatched by the scanner. Start with two scan types:
 
-1. `headers` (v0) — fetch + record TLS / redirects / security headers; no crawl.
-2. `baseline` (v1) — passive crawl + passive checks (no "attacks").
+1. `headers` (M3) — fetch + record TLS / redirects / security headers; no crawl.
+2. `crawl` (M4) — passive crawl + passive checks (no "attacks").
 
-If using OWASP ZAP baseline scan, it runs a spider then passive scanning and explicitly does not perform actual attacks.
+If using OWASP ZAP crawl scan, it runs a spider then passive scanning and explicitly does not perform actual attacks.
 
 #### 6.4 Job model + long-running scans
 
@@ -140,7 +140,7 @@ If using OWASP ZAP baseline scan, it runs a spider then passive scanning and exp
 
 #### 8.1 Input validation
 
-* `profileId` must exist in the profiles table.
+* `scanType` must exist in the SCAN_TYPES constant (code-based validation).
 * Targets are resolved one of two ways:
   * `targetId` must exist in the targets table, OR
   * `url` must be a valid URL (auto-registered as an ad-hoc target).
@@ -192,7 +192,7 @@ This makes "public-only" enforceable even under split-horizon DNS or misconfig.
 * Scanner can:
 
   * accept scan jobs via internal API
-  * run allowlisted profiles against allowlisted targets
+  * run defined scan types (dispatched from code-based SCAN_TYPES constant)
   * write artifacts to the reports volume
   * maintain job heartbeat/lease
 * No generic "run shell" or arbitrary network tool is exposed via DM commands.
@@ -249,23 +249,24 @@ Monorepo structure (share types/schemas):
 ### 11) Data model (minimal)
 
 * `targets(id, base_url, enabled)`
-* `profiles(id, config_json, enabled)`
 * `jobs(`
-  `id, requested_by, target_id, profile_id, status, status_reason, error_code,`
+  `id, requested_by, target_id, scan_type, status, status_reason, error_code,`
   `attempt, worker_id, last_heartbeat_at,`
   `created_at, started_at, finished_at,`
   `resolved_ips_json, report_path, summary_json`
   `)`
 
+Note: Scan types are defined in code (`SCAN_TYPES` constant in `shared/src/types.ts`), not in a database table.
+
 ---
 
 ### 12) Scanner API
 
-* `POST /scan` → `{ targetId?, url?, profileId, requestedBy }` → `{ jobId, status, ... }`
+* `POST /scan` → `{ targetId?, url?, scanType, requestedBy }` → `{ jobId, status, ... }`
   * Provide `targetId` to scan a pre-registered target, or `url` to scan any public URL (at least one required).
   * Returns 201 with full job object on success.
   * Returns 429 with `{ error: "RATE_LIMITED", runningJobId }` if a job is already running.
-  * Returns 404 if `targetId` or `profileId` not found.
+  * Returns 404 if `targetId` not found or 400 if `scanType` is invalid.
 * `GET /jobs/:jobId` → full job object (status, summary, errors, resolved IPs, timestamps)
 * `GET /jobs?limit=N&offset=0` → paginated job list
 
@@ -339,15 +340,15 @@ Monorepo structure (share types/schemas):
 **Learn:** orchestration, idempotency, restarts, zombie-job prevention.
 **Deliverables:** statuses, heartbeat fields, reconciliation rules, `history`.
 
-### M3 — Scanner service + `headers` profile + public-only sanity check
+### M3 — Scanner service + `headers` scan type + public-only sanity check
 
 **Learn:** narrow tool API design, safe defaults, artifact production, SSRF prevention via DNS resolution.
 **Deliverables:** headers checks, `summary.json`, artifacts, persisted job state. Resolve→Normalize→Verify→Log&Abort sanity check enforced before any outbound HTTP request. IPv4, IPv6, and IPv4-mapped IPv6 regression tests.
 
-### M4 — `baseline` passive profile integration
+### M4 — `crawl` passive scan type integration
 
 **Learn:** integrating an external scanner behind policy constraints.
-**Deliverables:** baseline scan artifacts + summary; no "attacks."
+**Deliverables:** crawl scan artifacts + summary; no "attacks." Add `crawl` to `SCAN_TYPES` constant and implement dispatcher logic.
 
 ### M5 — Report delivery + retention + disk guardrails
 

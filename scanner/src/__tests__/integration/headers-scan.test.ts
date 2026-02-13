@@ -1,11 +1,11 @@
-import { describe, it, expect, afterAll, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
-import { runHeadersScan } from "../../profiles/headers.js";
-import type { HeadersReport, HeadersSummary } from "../../profiles/headers.js";
+import { runHeadersScan } from "../../scanTypes/headers.js";
+import type { HeadersReport, HeadersSummary } from "../../scanTypes/headers.js";
 
 // --- Test server helpers ---
 
@@ -32,7 +32,6 @@ async function startRedirectServer(
 ): Promise<{ url: string; servers: FastifyInstance[] }> {
   const servers: FastifyInstance[] = [];
 
-  // Create final server first
   const finalServer = Fastify();
   finalServer.get("/", async (_req, reply) => {
     for (const [key, value] of Object.entries(finalHeaders)) {
@@ -46,7 +45,6 @@ async function startRedirectServer(
   });
   servers.push(finalServer);
 
-  // Build redirect chain backwards
   let nextUrl = finalAddress;
   const chainServers: FastifyInstance[] = [];
 
@@ -417,7 +415,7 @@ describe("Info leakage detection (end-to-end)", () => {
       header: "Server",
       value: "Apache/2.4.51 (Ubuntu)",
     });
-    expect(summary.infoLeakage).toContain("Server: Apache/2.4.51 (Ubuntu)");
+    expect(summary.infoLeakage).toBe(1);
   });
 
   it("detects X-Powered-By header", async () => {
@@ -431,7 +429,7 @@ describe("Info leakage detection (end-to-end)", () => {
       header: "X-Powered-By",
       value: "Express",
     });
-    expect(summary.infoLeakage).toContain("X-Powered-By: Express");
+    expect(summary.infoLeakage).toBe(1);
   });
 
   it("detects both Server and X-Powered-By", async () => {
@@ -443,16 +441,15 @@ describe("Info leakage detection (end-to-end)", () => {
 
     const { report, summary } = await scan(url);
     expect(report.infoLeakage).toHaveLength(2);
-    expect(summary.infoLeakage).toHaveLength(2);
+    expect(summary.infoLeakage).toBe(2);
   });
 
   it("reports no leakage when headers absent", async () => {
     const { url, server } = await startServer({});
     serversToClose.push(server);
 
-    const { report, summary } = await scan(url);
+    const { report } = await scan(url);
     // Fastify adds its own server header, so filter for known leaky ones
-    // Actually test that no X-Powered-By is found
     const poweredBy = report.infoLeakage.find(
       (l) => l.header === "X-Powered-By",
     );
@@ -577,7 +574,7 @@ describe("Summary counts (end-to-end)", () => {
     expect(summary.good).toBe(2);
     expect(summary.weak).toBe(2);
     expect(summary.missing).toBe(2);
-    expect(summary.infoLeakage).toHaveLength(2);
+    expect(summary.infoLeakage).toBe(2);
   });
 
   it("all weak site — 0 good, 6 weak, 0 missing", async () => {
@@ -600,6 +597,60 @@ describe("Summary counts (end-to-end)", () => {
   });
 });
 
+describe("Summary improvements (Phase 1)", () => {
+  it("infoLeakage should be a count, not an array", async () => {
+    const { url, server } = await startServer({
+      "server": "Apache/2.4.51",
+      "x-powered-by": "Express",
+    });
+    serversToClose.push(server);
+
+    const { summary } = await scan(url);
+    // Should be a number, not an array
+    expect(typeof summary.infoLeakage).toBe("number");
+    expect(summary.infoLeakage).toBe(2);
+  });
+
+  it("should include criticalFindings array", async () => {
+    const { url, server } = await startServer({});
+    serversToClose.push(server);
+
+    const { summary } = await scan(url);
+    // Should have criticalFindings array
+    expect(Array.isArray(summary.criticalFindings)).toBe(true);
+    expect(summary.criticalFindings.length).toBeGreaterThan(0);
+  });
+
+  it("criticalFindings should include missing HSTS and CSP", async () => {
+    const { url, server } = await startServer({});
+    serversToClose.push(server);
+
+    const { summary } = await scan(url);
+    expect(summary.criticalFindings).toContain("Missing HSTS header");
+    expect(summary.criticalFindings).toContain("Missing CSP header");
+  });
+
+  it("criticalFindings should be limited to top 5", async () => {
+    const { url, server } = await startServer({});
+    serversToClose.push(server);
+
+    const { summary } = await scan(url);
+    // Should have at most 5 critical findings
+    expect(summary.criticalFindings.length).toBeLessThanOrEqual(5);
+  });
+
+  it("criticalFindings should prioritize missing HSTS and CSP", async () => {
+    const { url, server } = await startServer({});
+    serversToClose.push(server);
+
+    const { summary } = await scan(url);
+    // HSTS and CSP should be first if missing
+    const firstTwo = summary.criticalFindings.slice(0, 2);
+    expect(firstTwo).toContain("Missing HSTS header");
+    expect(firstTwo).toContain("Missing CSP header");
+  });
+});
+
 // =============================================================
 // REPORT ARTIFACTS
 // =============================================================
@@ -613,7 +664,7 @@ describe("Report file output (end-to-end)", () => {
 
     const dir = tmpReportsDir();
     const jobId = crypto.randomUUID();
-    const { report } = await runHeadersScan(url, dir, jobId);
+    await runHeadersScan(url, dir, jobId);
 
     const filePath = path.join(dir, jobId, "headers.json");
     expect(fs.existsSync(filePath)).toBe(true);

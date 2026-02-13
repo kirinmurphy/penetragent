@@ -31,9 +31,12 @@ npm run test:integration
 Both local development and VPS production use Docker. The only difference is which command you run.
 
 ```bash
-npm run docker:dev    # local — hot reload, rebuilds on file changes
-npm run docker:prod   # VPS — optimized multi-stage build, slim Node 20
+npm run docker:dev         # local — hot reload (uses cached images, FAST)
+npm run docker:dev:build   # rebuild images when dependencies change
+npm run docker:prod        # VPS — optimized multi-stage build, slim Node 20
 ```
+
+**Use `docker:dev` for normal development** (just starts containers, takes seconds). Only use `docker:dev:build` when you've changed `package.json` or need to rebuild from scratch.
 
 To stop:
 
@@ -113,26 +116,37 @@ Now DM your bot in Telegram: `help`, `scan https://example.com`, `history`, etc.
 
 ### Telegram commands
 
-| Command                 | Description                     |
-| ----------------------- | ------------------------------- |
-| `help`                  | Show available commands         |
-| `targets`               | List previously scanned targets |
-| `scantypes`             | List available scan types       |
-| `scan <url> [scanType]` | Start a scan on a URL           |
-| `status <jobId>`        | Check the status of a scan job  |
-| `history`               | Show the 10 most recent scans   |
+| Command                         | Description                              |
+| ------------------------------- | ---------------------------------------- |
+| `help`                          | Show available commands                  |
+| `targets`                       | List previously scanned targets          |
+| `scantypes`                     | List available scan types                |
+| `scan <url> [scanType]`         | Start a scan on a URL                    |
+| `status <jobId>`                | Check the status of a scan job           |
+| `history [target\|number]`      | Show scan history                        |
+| `delete <identifier\|all>`      | Delete scans (requires confirmation)     |
+| `confirm`                       | Confirm pending deletion                 |
 
 **Examples:**
 
-```
+```text
 help
-scan https://example.com
-scan https://example.com headers
+scan https://example.com                              # defaults to 'headers' scan
+scan https://example.com headers                      # quick single-page check
+scan https://example.com crawl                        # comprehensive multi-page audit
 status a1b2c3d4-e5f6-7890-abcd-ef1234567890
 targets
 scantypes
-history
+history                                               # last 10 unique targets
+history 25                                            # last 25 unique targets
+history example.com                                   # all scans for target
+delete example.com                                    # delete all scans for target
+confirm                                               # confirm deletion
 ```
+
+**Scan types:**
+- `headers` — Fast single-page security header check (default)
+- `crawl` — Crawls up to 20 pages and checks each for security issues
 
 ---
 
@@ -168,13 +182,18 @@ The scanner exposes an HTTP API on port 8080. This works whether you're running 
 # Health check
 curl localhost:8080/health
 
-# Scan any public URL
+# Scan any public URL (defaults to 'headers' scan)
 curl -X POST localhost:8080/scan \
   -H 'Content-Type: application/json' \
   -d '{"url":"https://example.com","requestedBy":"cli"}'
+
+# Specify scan type explicitly
+curl -X POST localhost:8080/scan \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://example.com","scanType":"crawl","requestedBy":"cli"}'
 ```
 
-The response includes a `jobId`. The job moves through `QUEUED → RUNNING → SUCCEEDED` within a few seconds.
+The response includes a `jobId`. The job moves through `QUEUED → RUNNING → SUCCEEDED` within a few seconds (headers scan) or minutes (crawl scan).
 
 ```bash
 # Check job status (paste your jobId)
@@ -195,14 +214,20 @@ curl -X POST localhost:8080/scan \
   -d '{"targetId":"example.com","requestedBy":"cli"}'
 ```
 
-The full scan report is written to `scanner/reports/<jobId>/headers.json`.
+The full scan report is written to:
+- `scanner/reports/<jobId>/headers.json` (for headers scans)
+- `scanner/reports/<jobId>/crawl.json` (for crawl scans)
 
 ### Full curl API
 
-| Method | Endpoint                  | Description                     |
-| ------ | ------------------------- | ------------------------------- |
-| `GET`  | `/health`                 | Health check                    |
-| `GET`  | `/targets`                | List previously scanned targets |
-| `POST` | `/scan`                   | Start a scan                    |
-| `GET`  | `/jobs/<jobId>`           | Check job status                |
-| `GET`  | `/jobs?limit=10&offset=0` | List jobs (paginated)           |
+| Method   | Endpoint                          | Description                     |
+| -------- | --------------------------------- | ------------------------------- |
+| `GET`    | `/health`                         | Health check                    |
+| `GET`    | `/targets`                        | List previously scanned targets |
+| `POST`   | `/scan`                           | Start a scan                    |
+| `GET`    | `/jobs/<jobId>`                   | Check job status                |
+| `GET`    | `/jobs?limit=10&offset=0`         | List jobs (paginated)           |
+| `GET`    | `/jobs?targetId=example.com`      | List jobs for specific target   |
+| `DELETE` | `/jobs/<jobId>`                   | Delete single job               |
+| `DELETE` | `/jobs?targetId=example.com`      | Delete all jobs for target      |
+| `DELETE` | `/jobs/all`                       | Delete all jobs                 |

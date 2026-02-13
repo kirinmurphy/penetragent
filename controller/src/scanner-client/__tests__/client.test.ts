@@ -237,7 +237,7 @@ describe("ScannerClient", () => {
         json: async () => mockResponse,
       });
 
-      const result = await client.listJobs(10, 0);
+      const result = await client.listJobs({ limit: 10 });
 
       expect(result).toEqual(mockResponse);
       expect(global.fetch).toHaveBeenCalledWith(

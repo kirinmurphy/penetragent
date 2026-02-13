@@ -11,8 +11,16 @@
     "test": "npm test -w shared -w scanner -w controller",
     "test:unit": "npm test -w shared -w controller && npm run test:unit -w scanner",
     "test:integration": "npm run test:integration -w scanner",
-    "docker:dev": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up --build",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w scanner && npm run typecheck -w controller",
+    "docker:dev": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up",
+    "docker:dev:build": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up --build",
     "docker:prod": "docker compose -f infra/docker-compose.yml up --build",
     "docker:down": "docker compose -f infra/docker-compose.yml down"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "typescript-eslint": "^8.55.0"
   }
 }

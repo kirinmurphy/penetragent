@@ -21,7 +21,9 @@ flowchart TD
     SCANTYPES["scantypes<br/>List scan types"]:::command
     SCAN["scan &lt;url&gt; [scanType]<br/>e.g. scan https://example.com"]:::command
     STATUS["status jobId"]:::command
-    HISTORY["history"]:::command
+    HISTORY["history [target|number]"]:::command
+    DELETE["delete &lt;identifier|all&gt;"]:::command
+    CONFIRM["confirm"]:::command
 
     SCAN_API["POST /scan → scanner"]:::scanner
     SCAN_OK["Reply: 'Scan started!'<br/>+ start JobPoller"]:::telegram
@@ -32,6 +34,14 @@ flowchart TD
     STATUS_OK["Reply: formatted job details"]:::telegram
     HISTORY_API["GET /jobs → scanner"]:::scanner
     HISTORY_OK["Reply: recent scan list"]:::telegram
+
+    DELETE_PENDING["Store pending deletion<br/>60-second timeout"]:::command
+    DELETE_PROMPT["Reply: confirmation prompt<br/>'Reply confirm within 60s'"]:::telegram
+
+    CONFIRM_CHECK{Pending<br/>deletion?}:::parser
+    CONFIRM_DELETE["DELETE → scanner"]:::scanner
+    CONFIRM_OK["Reply: 'Deleted N scans'"]:::telegram
+    CONFIRM_NONE["Reply: 'No pending deletion'"]:::error
 
     MSG --> ALLOW
     ALLOW -- "userId ≠ allowed" --> DROP
@@ -44,6 +54,8 @@ flowchart TD
     KNOWN -- "scan" --> SCAN
     KNOWN -- "status" --> STATUS
     KNOWN -- "history" --> HISTORY
+    KNOWN -- "delete" --> DELETE
+    KNOWN -- "confirm" --> CONFIRM
 
     SCAN --> SCAN_API
     SCAN_API -- "201" --> SCAN_OK
@@ -52,4 +64,9 @@ flowchart TD
 
     STATUS --> STATUS_API --> STATUS_OK
     HISTORY --> HISTORY_API --> HISTORY_OK
+
+    DELETE --> DELETE_PENDING --> DELETE_PROMPT
+    CONFIRM --> CONFIRM_CHECK
+    CONFIRM_CHECK -- "Yes" --> CONFIRM_DELETE --> CONFIRM_OK
+    CONFIRM_CHECK -- "No" --> CONFIRM_NONE
 ```

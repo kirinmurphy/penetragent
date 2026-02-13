@@ -88,10 +88,9 @@ export class ScannerClient {
   }
 
   async listJobs(
-    limit = 10,
-    offset = 0,
-    status?: string,
+    opts: { limit?: number; offset?: number; status?: string } = {},
   ): Promise<JobListResponse> {
+    const { limit = 10, offset = 0, status } = opts;
     let url = `/jobs?limit=${limit}&offset=${offset}`;
     if (status) {
       url += `&status=${encodeURIComponent(status)}`;
@@ -101,6 +100,45 @@ export class ScannerClient {
       throw new ScannerApiError(res.status, await res.text());
     }
     return res.json() as Promise<JobListResponse>;
+  }
+
+  async listJobsByTarget(
+    opts: { targetId: string; limit?: number; offset?: number },
+  ): Promise<JobListResponse> {
+    const { targetId, limit = 100, offset = 0 } = opts;
+    const url = `/jobs?targetId=${encodeURIComponent(targetId)}&limit=${limit}&offset=${offset}`;
+    const res = await this.fetch(url);
+    if (!res.ok) {
+      throw new ScannerApiError(res.status, await res.text());
+    }
+    return res.json() as Promise<JobListResponse>;
+  }
+
+  async deleteJob(jobId: string): Promise<{ deleted: number }> {
+    const res = await this.fetch(`/jobs/${jobId}`, { method: "DELETE" });
+    if (!res.ok) {
+      throw new ScannerApiError(res.status, await res.text());
+    }
+    return res.json() as Promise<{ deleted: number }>;
+  }
+
+  async deleteJobsByTarget(targetId: string): Promise<{ deleted: number }> {
+    const res = await this.fetch(
+      `/jobs?targetId=${encodeURIComponent(targetId)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) {
+      throw new ScannerApiError(res.status, await res.text());
+    }
+    return res.json() as Promise<{ deleted: number }>;
+  }
+
+  async deleteAllJobs(): Promise<{ deleted: number }> {
+    const res = await this.fetch("/jobs/all", { method: "DELETE" });
+    if (!res.ok) {
+      throw new ScannerApiError(res.status, await res.text());
+    }
+    return res.json() as Promise<{ deleted: number }>;
   }
 
   private async fetch(

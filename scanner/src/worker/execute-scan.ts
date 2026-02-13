@@ -13,7 +13,8 @@ import {
   verifyPublicOnly,
   DnsError,
 } from "../security/verify-public-only.js";
-import { runHeadersScan } from "../profiles/headers.js";
+import { runHeadersScan } from "../scanTypes/headers.js";
+import { runCrawlScan } from "../scanTypes/crawl/index.js";
 
 async function runScanType(
   scanType: ScanTypeId,
@@ -24,6 +25,10 @@ async function runScanType(
   switch (scanType) {
     case "headers": {
       const { summary } = await runHeadersScan(baseUrl, reportsDir, jobId);
+      return summary;
+    }
+    case "crawl": {
+      const { summary } = await runCrawlScan(baseUrl, reportsDir, jobId);
       return summary;
     }
   }

@@ -8,8 +8,12 @@ import { handleScanTypes } from "./commands/scantypes.js";
 import { handleScan } from "./commands/scan.js";
 import { handleStatus } from "./commands/status.js";
 import { handleHistory } from "./commands/history.js";
+import { handleDelete } from "./commands/delete.js";
+import { handleConfirmDelete } from "./commands/confirm-delete.js";
+import { createDeleteConfirmationManager } from "./utils/delete-confirmation.js";
 import { ScannerClient } from "../scanner-client/client.js";
 import { JobPoller } from "../poller/job-poller.js";
+import { COMMAND } from "./constants.js";
 
 export interface BotContext {
   bot: Bot;
@@ -26,6 +30,10 @@ export function createBot(config: ControllerConfig): BotContext {
     config.pollTimeoutMs,
   );
 
+  const confirmationManager = createDeleteConfirmationManager();
+
+  setInterval(() => confirmationManager.cleanupExpired(), 5 * 60 * 1000);
+
   bot.use(allowlistMiddleware(config.telegramAllowedUserId));
 
   bot.on("message:text", async (ctx) => {
@@ -38,24 +46,36 @@ export function createBot(config: ControllerConfig): BotContext {
     }
 
     switch (parsed.command) {
-      case "help":
+      case COMMAND.HELP:
         await handleHelp(ctx);
         break;
-      case "targets":
-        await handleTargets(ctx, client);
+      case COMMAND.TARGETS:
+        await handleTargets({ ctx, client });
         break;
-      case "scantypes":
+      case COMMAND.SCANTYPES:
         await handleScanTypes(ctx);
         break;
-      case "scan":
-        await handleScan(ctx, parsed.args, client, poller);
+      case COMMAND.SCAN:
+        await handleScan({ ctx, args: parsed.args, client, poller });
         break;
-      case "status":
-        await handleStatus(ctx, parsed.args, client);
+      case COMMAND.STATUS:
+        await handleStatus({ ctx, args: parsed.args, client });
         break;
-      case "history":
-        await handleHistory(ctx, client);
+      case COMMAND.HISTORY:
+        await handleHistory({ ctx, args: parsed.args, client });
         break;
+      case COMMAND.DELETE:
+        await handleDelete({ ctx, args: parsed.args, client, confirmationManager });
+        break;
+      case COMMAND.CONFIRM:
+        await handleConfirmDelete({ ctx, client, confirmationManager });
+        break;
+      default:
+        confirmationManager.clearPending(ctx.chat!.id);
+    }
+
+    if (parsed.command !== COMMAND.CONFIRM && parsed.command !== COMMAND.DELETE) {
+      confirmationManager.clearPending(ctx.chat!.id);
     }
   });
 

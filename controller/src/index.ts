@@ -14,7 +14,6 @@ async function main(): Promise<void> {
     },
   });
 
-  // Handle graceful shutdown
   const shutdown = async () => {
     console.log("Shutting down gracefully...");
     await bot.stop();

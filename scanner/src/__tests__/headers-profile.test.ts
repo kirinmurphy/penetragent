@@ -7,7 +7,7 @@ import {
   gradeReferrerPolicy,
   gradePermissionsPolicy,
   detectInfoLeakage,
-} from "../profiles/headers.js";
+} from "../scanTypes/headers.js";
 
 describe("gradeHsts", () => {
   it("missing → missing", () => {

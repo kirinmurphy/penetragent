@@ -1,10 +1,39 @@
 import { TERMINAL_STATUSES, JobStatus } from "@penetragent/shared";
+import type { JobPublic } from "@penetragent/shared";
 import type { Bot, Context } from "grammy";
 import type { ScannerClient } from "../scanner-client/client.js";
+import { formatSummary } from "../bot/utils/format-summary.js";
 
-// Recovery settings - fetch only in-progress jobs for efficiency
-const MAX_JOBS_TO_RECOVER = 100; // Should handle any realistic number of simultaneous scans
+const MAX_JOBS_TO_RECOVER = 100;
+
 const IN_PROGRESS_STATUSES = `${JobStatus.RUNNING},${JobStatus.QUEUED}`;
+
+function formatJob(job: JobPublic): string {
+  const lines = [
+    `Job: ${job.jobId}`,
+    `Target: ${job.targetId}`,
+    `Scan Type: ${job.scanType}`,
+    `Status: ${job.status}`,
+    `Created: ${job.createdAt}`,
+  ];
+
+  if (job.startedAt) lines.push(`Started: ${job.startedAt}`);
+  if (job.finishedAt) lines.push(`Finished: ${job.finishedAt}`);
+
+  if (job.errorCode) {
+    lines.push(`Error: ${job.errorCode}`);
+    if (job.errorMessage) lines.push(`Message: ${job.errorMessage}`);
+  }
+
+  if (job.summaryJson && TERMINAL_STATUSES.has(job.status)) {
+    const summary = job.summaryJson as Record<string, unknown>;
+    lines.push("");
+    lines.push("Summary:");
+    lines.push(...formatSummary(summary));
+  }
+
+  return lines.join("\n");
+}
 
 export class JobPoller {
   private readonly polls = new Map<string, ReturnType<typeof setInterval>>();
@@ -18,12 +47,10 @@ export class JobPoller {
 
   async recoverInProgressJobs(): Promise<void> {
     try {
-      // Optimized: Only fetch RUNNING/QUEUED jobs instead of all jobs
-      const response = await this.client.listJobs(
-        MAX_JOBS_TO_RECOVER,
-        0,
-        IN_PROGRESS_STATUSES,
-      );
+      const response = await this.client.listJobs({
+        limit: MAX_JOBS_TO_RECOVER,
+        status: IN_PROGRESS_STATUSES,
+      });
       const inProgressJobs = response.jobs;
 
       if (inProgressJobs.length > 0) {
@@ -49,7 +76,9 @@ export class JobPoller {
 
   startPolling(jobId: string, chatId: number): void {
     if (this.polls.has(jobId)) {
-      console.log(`Polling already active for job ${jobId}, skipping duplicate`);
+      console.log(
+        `Polling already active for job ${jobId}, skipping duplicate`,
+      );
       return;
     }
 
@@ -70,36 +99,7 @@ export class JobPoller {
 
         if (TERMINAL_STATUSES.has(job.status)) {
           this.stopPolling(jobId);
-
-          const shortId = jobId.substring(0, 8);
-          const lines = [
-            `Scan completed for ${job.targetId}`,
-            `Job: ${shortId}...`,
-            `Status: ${job.status}`,
-          ];
-
-          if (job.errorCode) {
-            lines.push(`Error: ${job.errorCode}`);
-            if (job.errorMessage) lines.push(`Message: ${job.errorMessage}`);
-          }
-
-          if (job.summaryJson) {
-            const summary = job.summaryJson as Record<string, unknown>;
-            lines.push("");
-            lines.push("Summary:");
-            for (const [key, value] of Object.entries(summary)) {
-              if (Array.isArray(value)) {
-                lines.push(`  ${key}: ${value.join(", ") || "none"}`);
-              } else {
-                lines.push(`  ${key}: ${value}`);
-              }
-            }
-          }
-
-          lines.push("");
-          lines.push(`For detailed report, use: status ${jobId}`);
-
-          await this.bot.api.sendMessage(chatId, lines.join("\n"));
+          await this.bot.api.sendMessage(chatId, formatJob(job));
         }
       } catch (err) {
         console.error(`Polling error for job ${jobId}:`, err);

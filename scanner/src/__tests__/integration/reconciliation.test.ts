@@ -24,7 +24,6 @@ describe("Reconciliation integration", () => {
     migrate(db);
     seedTestTargets(db);
 
-    // Create a job and transition to RUNNING
     const jobId = createJob(db, "staging", "headers", "test");
     transitionToRunning(db, jobId, "old-worker");
 

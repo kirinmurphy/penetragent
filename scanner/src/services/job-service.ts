@@ -168,6 +168,36 @@ export function markStaleJobsAsFailed(
   return result.changes;
 }
 
+export function listJobsByTarget(
+  db: Database.Database,
+  targetId: string,
+  limit: number,
+  offset: number,
+): { jobs: JobRow[]; total: number } {
+  const query = "SELECT * FROM jobs WHERE target_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?";
+  const countQuery = "SELECT COUNT(*) as total FROM jobs WHERE target_id = ?";
+
+  const jobs = db.prepare(query).all(targetId, limit, offset) as JobRow[];
+  const { total } = db.prepare(countQuery).get(targetId) as { total: number };
+
+  return { jobs, total };
+}
+
+export function deleteJob(db: Database.Database, jobId: string): number {
+  const result = db.prepare("DELETE FROM jobs WHERE id = ?").run(jobId);
+  return result.changes;
+}
+
+export function deleteJobsByTarget(db: Database.Database, targetId: string): number {
+  const result = db.prepare("DELETE FROM jobs WHERE target_id = ?").run(targetId);
+  return result.changes;
+}
+
+export function deleteAllJobs(db: Database.Database): number {
+  const result = db.prepare("DELETE FROM jobs").run();
+  return result.changes;
+}
+
 export function toJobPublic(row: JobRow): JobPublic {
   return {
     jobId: row.id,

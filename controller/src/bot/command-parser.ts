@@ -1,22 +1,18 @@
+import { COMMAND } from "./constants.js";
+
+export type CommandName = (typeof COMMAND)[keyof typeof COMMAND];
+
 export interface ParsedCommand {
-  command: string;
+  command: CommandName;
   args: string[];
 }
 
-const KNOWN_COMMANDS = new Set([
-  "help",
-  "targets",
-  "scantypes",
-  "scan",
-  "status",
-  "history",
-]);
+const KNOWN_COMMANDS = new Set<string>(Object.values(COMMAND));
 
 export function parseCommand(text: string): ParsedCommand | null {
   const trimmed = text.trim();
   if (!trimmed) return null;
 
-  // Remove leading / if present
   const cleaned = trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
   if (!cleaned) return null;
 
@@ -28,7 +24,7 @@ export function parseCommand(text: string): ParsedCommand | null {
   }
 
   return {
-    command,
+    command: command as CommandName,
     args: parts.slice(1),
   };
 }

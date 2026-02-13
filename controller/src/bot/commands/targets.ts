@@ -2,10 +2,11 @@ import type { Context } from "grammy";
 import type { ScannerClient } from "../../scanner-client/client.js";
 import { handleCommandError } from "../utils/error-handler.js";
 
-export async function handleTargets(
-  ctx: Context,
-  client: ScannerClient,
-): Promise<void> {
+export async function handleTargets(params: {
+  ctx: Context;
+  client: ScannerClient;
+}): Promise<void> {
+  const { ctx, client } = params;
   try {
     const targets = await client.listTargets();
     if (targets.length === 0) {
