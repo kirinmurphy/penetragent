@@ -12,7 +12,7 @@ export async function handleScan(params: {
 }): Promise<void> {
   const { ctx, args, client, poller } = params;
   if (args.length < 1) {
-    await ctx.reply("Usage: scan <url> [scanType]\nExample: scan https://example.com headers");
+    await ctx.reply("Usage: scan <url>\nExample: scan https://example.com");
     return;
   }
 

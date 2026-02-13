@@ -8,6 +8,7 @@ import { healthRoutes } from "./routes/health.js";
 import { scanRoutes } from "./routes/scan.js";
 import { jobsRoutes } from "./routes/jobs.js";
 import { targetsRoutes } from "./routes/targets.js";
+import { reportsRoutes } from "./routes/reports.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -26,6 +27,7 @@ async function main(): Promise<void> {
   await app.register(scanRoutes);
   await app.register(jobsRoutes);
   await app.register(targetsRoutes);
+  await app.register(reportsRoutes);
 
   startWorker(db, config);
 

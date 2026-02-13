@@ -1,7 +1,6 @@
 import type Database from "better-sqlite3";
 import type { ScannerConfig } from "@penetragent/shared";
-import { ErrorCode, SCAN_TYPES } from "@penetragent/shared";
-import type { ScanTypeId } from "@penetragent/shared";
+import { ErrorCode } from "@penetragent/shared";
 import {
   transitionToSucceeded,
   transitionToFailed,
@@ -13,26 +12,9 @@ import {
   verifyPublicOnly,
   DnsError,
 } from "../security/verify-public-only.js";
-import { runHeadersScan } from "../scanTypes/headers.js";
-import { runCrawlScan } from "../scanTypes/crawl/index.js";
-
-async function runScanType(
-  scanType: ScanTypeId,
-  baseUrl: string,
-  reportsDir: string,
-  jobId: string,
-): Promise<unknown> {
-  switch (scanType) {
-    case "headers": {
-      const { summary } = await runHeadersScan(baseUrl, reportsDir, jobId);
-      return summary;
-    }
-    case "crawl": {
-      const { summary } = await runCrawlScan(baseUrl, reportsDir, jobId);
-      return summary;
-    }
-  }
-}
+import { runHttpScan } from "../scanTypes/crawl/index.js";
+import { createUnifiedReport } from "../services/unified-report-service.js";
+import { writeHtmlReport } from "../services/html-report-service.js";
 
 export async function executeScan(
   db: Database.Database,
@@ -56,23 +38,18 @@ export async function executeScan(
   }
 
   try {
-    const typesToRun: ScanTypeId[] =
-      job.scan_type === "all"
-        ? (Object.keys(SCAN_TYPES) as ScanTypeId[])
-        : [job.scan_type as ScanTypeId];
+    const { report, summary } = await runHttpScan(target.base_url);
 
-    const results: Record<string, unknown> = {};
-    for (const scanType of typesToRun) {
-      results[scanType] = await runScanType(
-        scanType,
-        target.base_url,
-        config.reportsDir,
-        job.id,
-      );
+    const reportBuilder = createUnifiedReport(job.id, target.base_url);
+    reportBuilder.addHttpScan(report, summary);
+    reportBuilder.write(config.reportsDir);
+
+    try {
+      writeHtmlReport(config.reportsDir, job.id, target.id);
+    } catch (htmlErr) {
+      console.error(`Failed to write HTML report for job ${job.id}:`, htmlErr);
     }
 
-    // If only one scan type ran, use its result directly for backward compat
-    const summary = typesToRun.length === 1 ? results[typesToRun[0]] : results;
     transitionToSucceeded(db, job.id, JSON.stringify(summary));
   } catch (err) {
     transitionToFailed(

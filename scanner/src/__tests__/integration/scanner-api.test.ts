@@ -97,7 +97,7 @@ describe("Scanner API integration", () => {
       url: "/scan",
       payload: {
         targetId: "nonexistent",
-        scanType: "headers",
+        scanType: "http",
         requestedBy: "test",
       },
     });
@@ -121,7 +121,7 @@ describe("Scanner API integration", () => {
       url: "/scan",
       payload: {
         targetId: "staging",
-        scanType: "headers",
+        scanType: "http",
         requestedBy: "test",
       },
     });
@@ -165,7 +165,7 @@ describe("Scanner API integration", () => {
       url: "/scan",
       payload: {
         targetId: "staging",
-        scanType: "headers",
+        scanType: "http",
         requestedBy: "test",
       },
     });
@@ -213,7 +213,7 @@ describe("Scanner API integration", () => {
       url: "/scan",
       payload: {
         targetId: "staging",
-        scanType: "headers",
+        scanType: "http",
         requestedBy: "test",
       },
     });
@@ -239,7 +239,7 @@ describe("Full scan flow", () => {
       url: "/scan",
       payload: {
         targetId: "staging",
-        scanType: "headers",
+        scanType: "http",
         requestedBy: "test",
       },
     });

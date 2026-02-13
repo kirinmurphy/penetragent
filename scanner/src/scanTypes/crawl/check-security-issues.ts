@@ -1,37 +1,33 @@
-import { CRAWL_CONFIG } from "../scan-config.js";
+import { HTTP_SCAN_CONFIG } from "../scan-config.js";
+import { gradeAllHeaders, detectInfoLeakage } from "../headers.js";
+import type { HeaderGrade } from "@penetragent/shared";
+
+export interface PageSecurityResult {
+  headerGrades: HeaderGrade[];
+  infoLeakage: { header: string; value: string }[];
+  contentIssues: string[];
+}
 
 export function checkSecurityIssues(
   response: Response,
   body: string,
-): string[] {
-  const issues: string[] = [];
-  const { securityChecks } = CRAWL_CONFIG;
+): PageSecurityResult {
+  const headerGrades = gradeAllHeaders(response.headers);
+  const infoLeakage = detectInfoLeakage(response.headers);
+  const contentIssues: string[] = [];
 
-  for (const { header, finding } of securityChecks.requiredHeaders) {
-    if (!response.headers.get(header)) {
-      issues.push(finding);
-    }
-  }
-
-  for (const { header, displayName } of securityChecks.infoDisclosureHeaders) {
-    const value = response.headers.get(header);
-    if (value) {
-      issues.push(`${displayName} header disclosed: ${value}`);
-    }
-  }
-
-  if (securityChecks.mixedContentCheck && response.url.startsWith("https://")) {
+  if (HTTP_SCAN_CONFIG.mixedContentCheck && response.url.startsWith("https://")) {
     const httpResourceRegex = /src=["']http:\/\/[^"']+["']/gi;
     if (httpResourceRegex.test(body)) {
-      issues.push("Mixed content detected (HTTPS page with HTTP resources)");
+      contentIssues.push("Mixed content detected (HTTPS page with HTTP resources)");
     }
   }
 
-  if (securityChecks.xssPatternCheck) {
+  if (HTTP_SCAN_CONFIG.xssPatternCheck) {
     if (body.includes("<script>alert(") || body.includes("javascript:")) {
-      issues.push("Potential XSS pattern detected");
+      contentIssues.push("Potential XSS pattern detected");
     }
   }
 
-  return issues;
+  return { headerGrades, infoLeakage, contentIssues };
 }

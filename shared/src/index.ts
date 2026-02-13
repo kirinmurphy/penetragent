@@ -15,3 +15,12 @@ export type {
 } from "./schemas.js";
 
 export type { ScannerConfig, ControllerConfig } from "./config.js";
+
+export type {
+  UnifiedReport,
+  HeaderGrade,
+  DetectedTechnology,
+  PageData,
+  HttpReportData,
+  HttpSummaryData,
+} from "./report-types.js";

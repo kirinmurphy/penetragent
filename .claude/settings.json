@@ -24,5 +24,27 @@
       "WebFetch",
       "WebSearch"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"$(git rev-parse --show-toplevel)\" && : > \"$ROOT/.claude/hooks/auto-rebuild.log\" && if docker info > /dev/null 2>&1; then SCANNER=$(docker ps -q --filter name=infra-scanner-1 2>/dev/null); CONTROLLER=$(docker ps -q --filter name=infra-controller-1 2>/dev/null); if [ -z \"$SCANNER\" ] || [ -z \"$CONTROLLER\" ]; then cd \"$ROOT\" && npm run docker:dev > /dev/null 2>&1 & fi; fi"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/auto-rebuild.sh\""
+          }
+        ]
+      }
+    ]
   }
 }

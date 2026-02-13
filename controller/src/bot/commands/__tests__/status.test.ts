@@ -29,7 +29,7 @@ describe("handleStatus", () => {
     const job: JobPublic = {
       jobId: "test-job-123",
       targetId: "example.com",
-      scanType: "headers",
+      scanType: "http",
       status: JobStatus.SUCCEEDED,
       requestedBy: "123456789",
       errorCode: null,
@@ -54,10 +54,10 @@ describe("handleStatus", () => {
     expect(mockContext.reply).toHaveBeenCalledOnce();
     const message = vi.mocked(mockContext.reply).mock.calls[0][0] as string;
 
-    expect(message).toContain("good: 3");
-    expect(message).toContain("weak: 1");
-    expect(message).toContain("missing: 2");
-    expect(message).toContain("infoLeakage: 1");
+    expect(message).toContain("Good: 3");
+    expect(message).toContain("Weak: 1");
+    expect(message).toContain("Missing: 2");
+    expect(message).toContain("Info Leakage: 1");
   });
 
   it("should format nested summary objects properly", async () => {
@@ -89,8 +89,8 @@ describe("handleStatus", () => {
 
     expect(message).toContain("headers:");
     expect(message).toContain("crawl:");
-    expect(message).toMatch(/good.*3/);
-    expect(message).toMatch(/pagesScanned.*15/);
+    expect(message).toMatch(/Good.*3/);
+    expect(message).toMatch(/Pages Scanned.*15/);
   });
 
   it("should return usage message when no jobId provided", async () => {
@@ -116,7 +116,7 @@ describe("handleStatus", () => {
     const job: JobPublic = {
       jobId: "test-job-running",
       targetId: "example.com",
-      scanType: "headers",
+      scanType: "http",
       status: JobStatus.RUNNING,
       requestedBy: "123456789",
       errorCode: null,

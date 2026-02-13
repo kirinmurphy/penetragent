@@ -16,6 +16,7 @@ services:
       - SCANNER_HOST=0.0.0.0
       - DB_PATH=/data/scanner.sqlite
       - REPORTS_DIR=/data/reports
+      - CHOKIDAR_USEPOLLING=true
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
@@ -33,4 +34,6 @@ services:
     volumes:
       - ../shared/src:/app/shared/src
       - ../controller/src:/app/controller/src
+    environment:
+      - CHOKIDAR_USEPOLLING=true
     stop_grace_period: 5s

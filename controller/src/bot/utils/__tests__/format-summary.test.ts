@@ -12,9 +12,9 @@ describe("formatSummary", () => {
     const lines = formatSummary(summary);
 
     expect(lines).toEqual([
-      "  good: 3",
-      "  weak: 1",
-      "  missing: 2",
+      "  Good: 3",
+      "  Weak: 1",
+      "  Missing: 2",
     ]);
   });
 
@@ -26,7 +26,7 @@ describe("formatSummary", () => {
     const lines = formatSummary(summary);
 
     expect(lines).toEqual([
-      "  infoLeakage: Server: nginx, X-Powered-By: PHP",
+      "  Info Leakage: Server: nginx, X-Powered-By: PHP",
     ]);
   });
 
@@ -38,7 +38,7 @@ describe("formatSummary", () => {
     const lines = formatSummary(summary);
 
     expect(lines).toEqual([
-      "  infoLeakage: none",
+      "  Info Leakage: none",
     ]);
   });
 
@@ -52,12 +52,12 @@ describe("formatSummary", () => {
 
     expect(lines).toEqual([
       "  headers:",
-      "    good: 3",
-      "    weak: 1",
-      "    missing: 2",
+      "    Good: 3",
+      "    Weak: 1",
+      "    Missing: 2",
       "  crawl:",
-      "    pagesScanned: 15",
-      "    issuesFound: 8",
+      "    Pages Scanned: 15",
+      "    Issues Found: 8",
     ]);
   });
 
@@ -71,12 +71,12 @@ describe("formatSummary", () => {
     const lines = formatSummary(summary);
 
     expect(lines).toEqual([
-      "  pagesScanned: 5",
-      "  issuesFound: 3",
+      "  Pages Scanned: 5",
+      "  Issues Found: 3",
       "",
-      "Critical Findings:",
-      "  • Missing HSTS",
-      "  • Missing CSP",
+      "  Critical Findings:",
+      "    • Missing HSTS",
+      "    • Missing CSP",
     ]);
   });
 
@@ -89,8 +89,8 @@ describe("formatSummary", () => {
     const lines = formatSummary(summary, "    ");
 
     expect(lines).toEqual([
-      "    good: 3",
-      "    weak: 1",
+      "    Good: 3",
+      "    Weak: 1",
     ]);
   });
 
@@ -128,9 +128,9 @@ describe("formatSummary", () => {
     const lines = formatSummary(summary);
 
     expect(lines).toContain("");
-    expect(lines).toContain("Critical Findings:");
-    expect(lines).toContain("  • Missing HSTS header");
-    expect(lines).toContain("  • Missing CSP header");
+    expect(lines).toContain("  Critical Findings:");
+    expect(lines).toContain("    • Missing HSTS header");
+    expect(lines).toContain("    • Missing CSP header");
   });
 
   it("should show critical findings prominently", () => {
@@ -160,6 +160,6 @@ describe("formatSummary", () => {
     const lines = formatSummary(summary);
     const joined = lines.join("\n");
 
-    expect(joined).not.toContain("Critical Findings:");
+    expect(joined).not.toContain("Critical Findings");
   });
 });

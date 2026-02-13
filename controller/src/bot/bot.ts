@@ -28,6 +28,7 @@ export function createBot(config: ControllerConfig): BotContext {
     bot,
     config.pollIntervalMs,
     config.pollTimeoutMs,
+    config.scannerBaseUrl,
   );
 
   const confirmationManager = createDeleteConfirmationManager();

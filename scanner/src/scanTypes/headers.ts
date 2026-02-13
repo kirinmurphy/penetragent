@@ -1,30 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
-import { HEADERS_CONFIG, GRADE, type Grade } from "./scan-config.js";
+import { GRADE } from "./scan-config.js";
+import type { HeaderGrade } from "@penetragent/shared";
 
-export interface HeaderGrade {
-  header: string;
-  value: string | null;
-  grade: Grade;
-  reason: string;
-}
-
-export interface HeadersReport {
-  url: string;
-  redirectChain: string[];
-  finalUrl: string;
-  statusCode: number;
-  headers: HeaderGrade[];
-  infoLeakage: { header: string; value: string }[];
-}
-
-export interface HeadersSummary {
-  good: number;
-  weak: number;
-  missing: number;
-  infoLeakage: number;
-  criticalFindings: string[];
-}
+export type { HeaderGrade };
 
 export function gradeHsts(value: string | null): HeaderGrade {
   if (!value) {
@@ -190,6 +167,17 @@ export function gradePermissionsPolicy(value: string | null): HeaderGrade {
   };
 }
 
+export function gradeAllHeaders(headers: Headers): HeaderGrade[] {
+  return [
+    gradeHsts(headers.get("strict-transport-security")),
+    gradeCsp(headers.get("content-security-policy")),
+    gradeXContentTypeOptions(headers.get("x-content-type-options")),
+    gradeXFrameOptions(headers.get("x-frame-options")),
+    gradeReferrerPolicy(headers.get("referrer-policy")),
+    gradePermissionsPolicy(headers.get("permissions-policy")),
+  ];
+}
+
 export function detectInfoLeakage(
   headers: Headers,
 ): { header: string; value: string }[] {
@@ -199,94 +187,4 @@ export function detectInfoLeakage(
   const poweredBy = headers.get("x-powered-by");
   if (poweredBy) leaks.push({ header: "X-Powered-By", value: poweredBy });
   return leaks;
-}
-
-export async function runHeadersScan(
-  baseUrl: string,
-  reportsDir: string,
-  jobId: string,
-): Promise<{ report: HeadersReport; summary: HeadersSummary }> {
-  const redirectChain: string[] = [];
-  let currentUrl = baseUrl;
-  let response: Response;
-
-  for (let i = 0; i < HEADERS_CONFIG.maxRedirects; i++) {
-    response = await fetch(currentUrl, { redirect: "manual" });
-    redirectChain.push(currentUrl);
-
-    const location = response.headers.get("location");
-    if (
-      location &&
-      response.status >= 300 &&
-      response.status < 400
-    ) {
-      currentUrl = new URL(location, currentUrl).href;
-      continue;
-    }
-    break;
-  }
-
-  response = response!;
-
-  const grades: HeaderGrade[] = [
-    gradeHsts(response.headers.get("strict-transport-security")),
-    gradeCsp(response.headers.get("content-security-policy")),
-    gradeXContentTypeOptions(
-      response.headers.get("x-content-type-options"),
-    ),
-    gradeXFrameOptions(response.headers.get("x-frame-options")),
-    gradeReferrerPolicy(response.headers.get("referrer-policy")),
-    gradePermissionsPolicy(response.headers.get("permissions-policy")),
-  ];
-
-  const infoLeakage = detectInfoLeakage(response.headers);
-
-  const report: HeadersReport = {
-    url: baseUrl,
-    redirectChain,
-    finalUrl: currentUrl,
-    statusCode: response.status,
-    headers: grades,
-    infoLeakage,
-  };
-
-  const criticalFindings: string[] = [];
-  const missingHeaders = grades.filter((g) => g.grade === GRADE.MISSING);
-
-  for (const priorityHeader of HEADERS_CONFIG.priorityHeaders) {
-    const match = missingHeaders.find((h) => h.header === priorityHeader);
-    if (match) {
-      criticalFindings.push(`Missing ${match.header.includes("Strict") ? "HSTS" : "CSP"} header`);
-    }
-  }
-
-  for (const header of missingHeaders) {
-    if (criticalFindings.length >= HEADERS_CONFIG.maxCriticalFindings) break;
-    if (HEADERS_CONFIG.priorityHeaders.includes(header.header)) {
-      continue;
-    }
-    criticalFindings.push(`Missing ${header.header} header`);
-  }
-
-  for (const leak of infoLeakage) {
-    if (criticalFindings.length >= HEADERS_CONFIG.maxCriticalFindings) break;
-    criticalFindings.push(`${leak.header} header disclosed: ${leak.value}`);
-  }
-
-  const summary: HeadersSummary = {
-    good: grades.filter((g) => g.grade === GRADE.GOOD).length,
-    weak: grades.filter((g) => g.grade === GRADE.WEAK).length,
-    missing: grades.filter((g) => g.grade === GRADE.MISSING).length,
-    infoLeakage: infoLeakage.length,
-    criticalFindings,
-  };
-
-  const jobDir = path.join(reportsDir, jobId);
-  fs.mkdirSync(jobDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(jobDir, "headers.json"),
-    JSON.stringify(report, null, 2),
-  );
-
-  return { report, summary };
 }

@@ -1,44 +1,44 @@
-import fs from "node:fs";
-import path from "node:path";
-import { CRAWL_CONFIG } from "../scan-config.js";
+import { HTTP_SCAN_CONFIG, GRADE } from "../scan-config.js";
 import { crawlPage } from "./crawl-page.js";
+import type {
+  PageData,
+  HttpReportData,
+  HttpSummaryData,
+} from "@penetragent/shared";
 
-export interface CrawlPage {
-  url: string;
-  statusCode: number;
-  contentType: string | null;
-  securityIssues: string[];
-}
+export type { PageData };
 
-export interface CrawlReport {
-  startUrl: string;
-  pagesScanned: number;
-  pages: CrawlPage[];
-  findings: string[];
-  timestamp: string;
-}
+const GRADE_SEVERITY: Record<string, number> = {
+  [GRADE.GOOD]: 0,
+  [GRADE.WEAK]: 1,
+  [GRADE.MISSING]: 2,
+};
 
-export interface CrawlSummary {
-  pagesScanned: number;
-  issuesFound: number;
-  criticalFindings: string[];
-}
-
-export async function runCrawlScan(
+export async function runHttpScan(
   baseUrl: string,
-  reportsDir: string,
-  jobId: string,
-): Promise<{ report: CrawlReport; summary: CrawlSummary }> {
+  maxPages: number = HTTP_SCAN_CONFIG.maxPages,
+): Promise<{ report: HttpReportData; summary: HttpSummaryData }> {
   const queued = new Set<string>([baseUrl]);
   const toVisit: string[] = [baseUrl];
-  const pages: CrawlPage[] = [];
+  const pages: PageData[] = [];
+  let redirectChain: string[] = [];
+  const metaGenerators: string[] = [];
 
-  while (toVisit.length > 0 && pages.length < CRAWL_CONFIG.maxPages) {
+  while (toVisit.length > 0 && pages.length < maxPages) {
     const url = toVisit.shift()!;
-    const { page, links } = await crawlPage(url);
-    pages.push(page);
+    const isFirstPage = pages.length === 0;
+    const result = await crawlPage(url, { trackRedirects: isFirstPage });
 
-    for (const link of links) {
+    pages.push(result.page);
+
+    if (isFirstPage && result.redirectChain) {
+      redirectChain = result.redirectChain;
+    }
+    if (result.metaGenerator) {
+      metaGenerators.push(result.metaGenerator);
+    }
+
+    for (const link of result.links) {
       if (!queued.has(link)) {
         queued.add(link);
         toVisit.push(link);
@@ -46,34 +46,68 @@ export async function runCrawlScan(
     }
   }
 
-  const allFindings = new Set(pages.flatMap((p) => p.securityIssues));
+  const findingsSet = new Set<string>();
+  for (const page of pages) {
+    for (const grade of page.headerGrades) {
+      if (grade.grade === GRADE.MISSING) {
+        findingsSet.add(`Missing ${grade.header} header`);
+      } else if (grade.grade === GRADE.WEAK) {
+        findingsSet.add(`Weak ${grade.header}: ${grade.reason}`);
+      }
+    }
+    for (const leak of page.infoLeakage) {
+      findingsSet.add(`${leak.header} header disclosed: ${leak.value}`);
+    }
+    for (const issue of page.contentIssues) {
+      findingsSet.add(issue);
+    }
+  }
 
-  const report: CrawlReport = {
+  const findings = Array.from(findingsSet);
+
+  const report: HttpReportData = {
     startUrl: baseUrl,
     pagesScanned: pages.length,
     pages,
-    findings: Array.from(allFindings),
+    findings,
+    redirectChain,
+    metaGenerators: [...new Set(metaGenerators)],
     timestamp: new Date().toISOString(),
   };
 
-  const criticalFindings = report.findings.filter((finding) =>
-    CRAWL_CONFIG.criticalFindingPatterns.some((pattern) =>
+  const criticalFindings = findings.filter((finding) =>
+    HTTP_SCAN_CONFIG.criticalFindingPatterns.some((pattern) =>
       finding.includes(pattern),
     ),
   );
 
-  const summary: CrawlSummary = {
+  const worstByHeader = new Map<string, string>();
+  for (const page of pages) {
+    for (const grade of page.headerGrades) {
+      const current = worstByHeader.get(grade.header);
+      if (!current || GRADE_SEVERITY[grade.grade] > GRADE_SEVERITY[current]) {
+        worstByHeader.set(grade.header, grade.grade);
+      }
+    }
+  }
+
+  let good = 0;
+  let weak = 0;
+  let missing = 0;
+  for (const grade of worstByHeader.values()) {
+    if (grade === GRADE.GOOD) good++;
+    else if (grade === GRADE.WEAK) weak++;
+    else if (grade === GRADE.MISSING) missing++;
+  }
+
+  const summary: HttpSummaryData = {
     pagesScanned: pages.length,
-    issuesFound: allFindings.size,
+    issuesFound: findingsSet.size,
+    good,
+    weak,
+    missing,
     criticalFindings,
   };
-
-  const jobDir = path.join(reportsDir, jobId);
-  fs.mkdirSync(jobDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(jobDir, "crawl.json"),
-    JSON.stringify(report, null, 2),
-  );
 
   return { report, summary };
 }
