@@ -1,5 +1,6 @@
 import type { TlsReportData, TlsSummaryData, TlsGrade } from "@penetragent/shared";
-import { GRADE } from "../scan-config.js";
+import { GRADE } from "../../grading/grade-config.js";
+import { countGradeDistribution } from "../../grading/count-grades.js";
 import { TLS_SCAN_CONFIG } from "./tls-scan-config.js";
 import { connectTls, testProtocolSupport } from "./connect.js";
 import { analyzeCertificate } from "./analyze-certificate.js";
@@ -59,9 +60,7 @@ export async function runTlsScan(
     TLS_SCAN_CONFIG.criticalFindingPatterns.some((p) => f.includes(p)),
   );
 
-  const good = allGrades.filter((g) => g.grade === GRADE.GOOD).length;
-  const weak = allGrades.filter((g) => g.grade === GRADE.WEAK).length;
-  const missing = allGrades.filter((g) => g.grade === GRADE.MISSING).length;
+  const { good, weak, missing } = countGradeDistribution(allGrades);
 
   const report: TlsReportData = {
     host,

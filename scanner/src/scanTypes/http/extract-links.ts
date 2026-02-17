@@ -1,5 +1,5 @@
 export function extractLinks(html: string, baseUrl: string): string[] {
-  const linkRegex = /href=["']([^"']+)["']/gi;
+  const linkRegex = /<a\s[^>]*href=["']([^"']+)["'][^>]*>/gi;
   const links: Set<string> = new Set();
   let match;
 

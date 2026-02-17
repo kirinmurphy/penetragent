@@ -4,18 +4,21 @@ import { formatSummary } from "./format-summary.js";
 import { formatHumanDate } from "./format-date.js";
 import { formatDuration } from "./format-duration.js";
 
+const SEPARATOR = "───────────────────";
+
 export function formatJob(job: JobPublic): string {
   const lines = [
-    `Job: ${job.jobId}`,
-    `Target: ${job.targetId}`,
+    SEPARATOR,
+    `Security Scan Report - ${job.status}`,
+    "",
+    job.targetId,
+    job.jobId,
   ];
 
   if (job.scanType !== "all") {
     const scanTypeName = SCAN_TYPES[job.scanType as ScanTypeId]?.name || job.scanType;
     lines.push(`Scan Type: ${scanTypeName}`);
   }
-
-  lines.push(`Status: ${job.status}`);
 
   if (job.finishedAt && job.createdAt) {
     const duration = formatDuration(job.createdAt, job.finishedAt);

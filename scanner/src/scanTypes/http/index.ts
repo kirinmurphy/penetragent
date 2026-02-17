@@ -1,6 +1,8 @@
-import { HTTP_SCAN_CONFIG, GRADE } from "../scan-config.js";
-import { computeWorstCaseGrades } from "../compute-worst-grades.js";
+import { HTTP_SCAN_CONFIG } from "./http-scan-config.js";
+import { computeWorstCaseGrades } from "./compute-worst-grades.js";
 import { fetchPage } from "./fetch-page.js";
+import { analyzeCors } from "./analyze-cors.js";
+import { collectFindingsByPage } from "./collect-findings.js";
 import type {
   PageData,
   HttpReportData,
@@ -9,10 +11,16 @@ import type {
 
 export type { PageData };
 
-export async function runHttpScan(
+interface CrawlResult {
+  pages: PageData[];
+  redirectChain: string[];
+  metaGenerators: string[];
+}
+
+async function crawlPages(
   baseUrl: string,
-  maxPages: number = HTTP_SCAN_CONFIG.maxPages,
-): Promise<{ report: HttpReportData; summary: HttpSummaryData }> {
+  maxPages: number,
+): Promise<CrawlResult> {
   const queued = new Set<string>([baseUrl]);
   const toVisit: string[] = [baseUrl];
   const pages: PageData[] = [];
@@ -26,8 +34,15 @@ export async function runHttpScan(
 
     pages.push(result.page);
 
-    if (isFirstPage && result.redirectChain) {
-      redirectChain = result.redirectChain;
+    if (isFirstPage) {
+      if (result.redirectChain) {
+        redirectChain = result.redirectChain;
+      }
+      result.page.corsChecked = true;
+      const corsIssues = await analyzeCors(baseUrl);
+      if (corsIssues.length > 0) {
+        result.page.corsIssues = corsIssues;
+      }
     }
     if (result.metaGenerator) {
       metaGenerators.push(result.metaGenerator);
@@ -41,51 +56,55 @@ export async function runHttpScan(
     }
   }
 
-  const findingsSet = new Set<string>();
-  for (const page of pages) {
-    for (const grade of page.headerGrades) {
-      if (grade.grade === GRADE.MISSING) {
-        findingsSet.add(`Missing ${grade.header} header`);
-      } else if (grade.grade === GRADE.WEAK) {
-        findingsSet.add(`Weak ${grade.header}: ${grade.reason}`);
-      }
-    }
-    for (const leak of page.infoLeakage) {
-      findingsSet.add(`${leak.header} header disclosed: ${leak.value}`);
-    }
-    for (const issue of page.contentIssues) {
-      findingsSet.add(issue);
-    }
-  }
+  return { pages, redirectChain, metaGenerators };
+}
 
-  const findings = Array.from(findingsSet);
-
-  const report: HttpReportData = {
+function buildHttpReport(config: {
+  baseUrl: string;
+  crawl: CrawlResult;
+  findings: string[];
+}): HttpReportData {
+  const { baseUrl, crawl, findings } = config;
+  return {
     startUrl: baseUrl,
-    pagesScanned: pages.length,
-    pages,
+    pagesScanned: crawl.pages.length,
+    pages: crawl.pages,
     findings,
-    redirectChain,
-    metaGenerators: [...new Set(metaGenerators)],
+    redirectChain: crawl.redirectChain,
+    metaGenerators: [...new Set(crawl.metaGenerators)],
     timestamp: new Date().toISOString(),
   };
+}
 
+function buildHttpSummary(config: {
+  pages: PageData[];
+  findings: string[];
+}): HttpSummaryData {
+  const { pages, findings } = config;
   const criticalFindings = findings.filter((finding) =>
     HTTP_SCAN_CONFIG.criticalFindingPatterns.some((pattern) =>
       finding.includes(pattern),
     ),
   );
-
   const { good, weak, missing } = computeWorstCaseGrades(pages);
-
-  const summary: HttpSummaryData = {
+  return {
     pagesScanned: pages.length,
-    issuesFound: findingsSet.size,
+    issuesFound: findings.length,
     good,
     weak,
     missing,
     criticalFindings,
   };
+}
 
+export async function runHttpScan(
+  baseUrl: string,
+  maxPages: number = HTTP_SCAN_CONFIG.maxPages,
+): Promise<{ report: HttpReportData; summary: HttpSummaryData }> {
+  const crawl = await crawlPages(baseUrl, maxPages);
+  const findingsMap = collectFindingsByPage(crawl.pages);
+  const findings = Array.from(findingsMap.keys());
+  const report = buildHttpReport({ baseUrl, crawl, findings });
+  const summary = buildHttpSummary({ pages: crawl.pages, findings });
   return { report, summary };
 }

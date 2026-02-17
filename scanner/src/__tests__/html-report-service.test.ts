@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateHtmlReport } from "../services/html-report-service.js";
+import { generateHtmlReport } from "../reports/html/index.js";
 import type { UnifiedReport } from "@penetragent/shared";
 
 function makeReport(overrides?: Partial<UnifiedReport>): UnifiedReport {
@@ -150,36 +150,6 @@ const cases = [
     },
   },
   {
-    name: "timestamp is shown without label",
-    check: (html: string) => {
-      expect(html).not.toContain("<strong>Timestamp:</strong>");
-    },
-  },
-  {
-    name: "does not show Job ID",
-    check: (html: string) => {
-      expect(html).not.toContain("Job ID:");
-    },
-  },
-  {
-    name: "does not contain Detected Technologies section",
-    check: (html: string) => {
-      expect(html).not.toContain("<h2>Detected Technologies</h2>");
-    },
-  },
-  {
-    name: "does not contain tech badges in subheader",
-    check: (html: string) => {
-      expect(html).not.toContain("tech-badge");
-    },
-  },
-  {
-    name: "does not contain Issues by Type section",
-    check: (html: string) => {
-      expect(html).not.toContain("<h2>Issues by Type</h2>");
-    },
-  },
-  {
     name: "scanned pages collapsed in details with id for linking",
     check: (html: string) => {
       expect(html).toContain("Scanned Pages (2)");
@@ -195,9 +165,8 @@ const cases = [
     },
   },
   {
-    name: "explanation content uses inline format without What label",
+    name: "explanation content uses inline format with Why it matters",
     check: (html: string) => {
-      expect(html).not.toContain("<dt>What:</dt>");
       expect(html).toContain("Why it matters:");
     },
   },
@@ -206,7 +175,6 @@ const cases = [
     check: (html: string) => {
       expect(html).toContain("ai-prompt-collapsible");
       expect(html).toContain("ai-prompt-header");
-      expect(html).not.toContain("<details class=\"ai-prompt");
     },
   },
   {

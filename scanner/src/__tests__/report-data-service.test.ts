@@ -9,7 +9,7 @@ import {
   buildPrintChecklist,
   collectMatchedFrameworks,
   processReportData,
-} from "../services/report-data-service.js";
+} from "../reports/report-data-service.js";
 
 function makeHttpData(
   overrides?: Partial<NonNullable<UnifiedReport["scans"]["http"]>>,
@@ -329,32 +329,42 @@ describe("buildPrintChecklist", () => {
     {
       name: "maps issues to generic and framework fixes",
       input: {
-        issues: classifyAndSortIssues({
+        headerIssues: classifyAndSortIssues({
           issueMap: new Map([["Missing Strict-Transport-Security header", { pages: ["https://a.com"] }]]),
           detectedTechs: [{ name: "Apache", confidence: "high" as const, source: "Server" }],
         }),
+        tlsIssues: [],
+        cookieIssues: [],
+        scriptIssues: [],
+        corsIssues: [],
         matchedFrameworks: [{ name: "Apache", slug: "apache" }],
       },
       expected: (result: ReturnType<typeof buildPrintChecklist>) => {
         expect(result).toHaveLength(1);
-        expect(result[0].issue).toBe("Missing Strict-Transport-Security header");
-        expect(result[0].genericFix).toContain("Strict-Transport-Security");
-        expect(result[0].frameworkFixes.length).toBeGreaterThan(0);
-        expect(result[0].frameworkFixes[0].framework).toBe("Apache");
+        expect(result[0].label).toBe("Security Headers");
+        expect(result[0].items).toHaveLength(1);
+        expect(result[0].items[0].issue).toBe("Missing Strict-Transport-Security header");
+        expect(result[0].items[0].genericFix).toContain("Strict-Transport-Security");
+        expect(result[0].items[0].frameworkFixes.length).toBeGreaterThan(0);
+        expect(result[0].items[0].frameworkFixes[0].framework).toBe("Apache");
       },
     },
     {
       name: "returns empty generic fix when no explanation exists",
       input: {
-        issues: classifyAndSortIssues({
+        headerIssues: classifyAndSortIssues({
           issueMap: new Map([["Unknown issue xyz", { pages: ["https://a.com"] }]]),
           detectedTechs: [],
         }),
+        tlsIssues: [],
+        cookieIssues: [],
+        scriptIssues: [],
+        corsIssues: [],
         matchedFrameworks: [],
       },
       expected: (result: ReturnType<typeof buildPrintChecklist>) => {
-        expect(result[0].genericFix).toBe("");
-        expect(result[0].frameworkFixes).toEqual([]);
+        expect(result[0].items[0].genericFix).toBe("");
+        expect(result[0].items[0].frameworkFixes).toEqual([]);
       },
     },
   ];

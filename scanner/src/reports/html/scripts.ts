@@ -5,7 +5,7 @@ export const CONTROL_BAR_SCRIPT = `
     if (detailsBtn) {
       detailsBtn.addEventListener('click', function() {
         var showing = this.classList.toggle('active');
-        this.textContent = showing ? 'Hide Issue Explanation' : 'Show Issue Explanation';
+        this.textContent = showing ? 'Hide Issue Explanations' : 'Show Issue Explanations';
         var items = document.querySelectorAll('.issue-details');
         for (var i = 0; i < items.length; i++) {
           items[i].style.display = showing ? 'block' : 'none';
@@ -78,7 +78,7 @@ export const COPY_PROMPT_SCRIPT = `
   <script>
   function copyPrompt() {
     var text = document.getElementById('ai-prompt-text').textContent;
-    var btn = document.querySelector('.copy-btn');
+    var btn = document.querySelector('.ai-copy-btn');
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function() {
         btn.textContent = 'Copied!';

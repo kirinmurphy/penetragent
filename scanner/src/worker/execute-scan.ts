@@ -14,8 +14,8 @@ import {
 } from "../security/verify-public-only.js";
 import { runHttpScan } from "../scanTypes/http/index.js";
 import { runTlsScan } from "../scanTypes/tls/index.js";
-import { createUnifiedReport } from "../services/unified-report-service.js";
-import { writeHtmlReport } from "../services/html-report-service.js";
+import { createUnifiedReport } from "../reports/unified-report-service.js";
+import { writeHtmlReport } from "../reports/html/index.js";
 
 export async function executeScan(
   db: Database.Database,

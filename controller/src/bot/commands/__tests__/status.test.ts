@@ -136,7 +136,7 @@ describe("handleStatus", () => {
     expect(mockContext.reply).toHaveBeenCalledOnce();
     const message = vi.mocked(mockContext.reply).mock.calls[0][0] as string;
 
-    expect(message).toContain("Status: RUNNING");
+    expect(message).toContain("Security Scan Report - RUNNING");
     expect(message).not.toContain("Summary:");
   });
 });

@@ -1,9 +1,10 @@
 import type { HeaderGrade } from "@penetragent/shared";
-import { GRADE, GRADE_SEVERITY } from "./scan-config.js";
+import { GRADE_SEVERITY } from "../../grading/grade-config.js";
+import { countGradeDistribution, type GradeDistribution } from "../../grading/count-grades.js";
 
 export function computeWorstCaseGrades(
   pages: { headerGrades: HeaderGrade[] }[],
-): { good: number; weak: number; missing: number } {
+): GradeDistribution {
   const worstByHeader = new Map<string, string>();
 
   for (const page of pages) {
@@ -15,14 +16,7 @@ export function computeWorstCaseGrades(
     }
   }
 
-  let good = 0;
-  let weak = 0;
-  let missing = 0;
-  for (const grade of worstByHeader.values()) {
-    if (grade === GRADE.GOOD) good++;
-    else if (grade === GRADE.WEAK) weak++;
-    else if (grade === GRADE.MISSING) missing++;
-  }
-
-  return { good, weak, missing };
+  return countGradeDistribution(
+    Array.from(worstByHeader.values()).map((grade) => ({ grade })),
+  );
 }

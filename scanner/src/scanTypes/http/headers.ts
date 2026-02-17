@@ -1,4 +1,5 @@
-import { GRADE, HEADER_RULES } from "./scan-config.js";
+import { GRADE } from "../../grading/grade-config.js";
+import { HEADER_RULES } from "./header-rules.js";
 import type { HeaderGrade } from "@penetragent/shared";
 
 export type { HeaderGrade };

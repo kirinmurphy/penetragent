@@ -241,6 +241,96 @@ export const SECURITY_EXPLANATIONS: Record<string, SecurityExplanation> = {
     },
   },
 
+  "Missing HttpOnly flag": {
+    what: "A cookie is set without the HttpOnly flag, making it accessible to JavaScript via document.cookie.",
+    why: "If an attacker exploits an XSS vulnerability, they can steal session cookies and hijack user accounts. HttpOnly prevents JavaScript access to the cookie.",
+    remediation: {
+      generic: "Set the HttpOnly flag on all session and authentication cookies.",
+      frameworks: {
+        "Express": "res.cookie('session', value, { httpOnly: true, secure: true, sameSite: 'lax' })",
+        "PHP": "In php.ini: session.cookie_httponly = 1\nOr per-cookie: setcookie('name', 'value', ['httponly' => true])",
+        "nginx": "If setting cookies via proxy_cookie_flags: proxy_cookie_flags ~ httponly;",
+      },
+    },
+  },
+
+  "Missing Secure flag": {
+    what: "A cookie is set without the Secure flag, meaning it can be transmitted over unencrypted HTTP connections.",
+    why: "Without the Secure flag, cookies can be intercepted by network attackers during HTTP requests, even if the site primarily uses HTTPS.",
+    remediation: {
+      generic: "Set the Secure flag on all cookies, especially session and authentication cookies.",
+      frameworks: {
+        "Express": "res.cookie('session', value, { secure: true, httpOnly: true, sameSite: 'lax' })",
+        "PHP": "In php.ini: session.cookie_secure = 1\nOr per-cookie: setcookie('name', 'value', ['secure' => true])",
+        "nginx": "If setting cookies via proxy_cookie_flags: proxy_cookie_flags ~ secure;",
+      },
+    },
+  },
+
+  "Missing SameSite attribute": {
+    what: "A cookie is set without a SameSite attribute, leaving the browser to apply its default policy.",
+    why: "Without an explicit SameSite attribute, cookies may be sent with cross-site requests, enabling CSRF attacks. While modern browsers default to Lax, explicit setting ensures consistent behavior.",
+    remediation: {
+      generic: "Set SameSite=Lax (or Strict for sensitive cookies) on all cookies.",
+      frameworks: {
+        "Express": "res.cookie('session', value, { sameSite: 'lax', secure: true, httpOnly: true })",
+        "PHP": "In php.ini: session.cookie_samesite = Lax\nOr per-cookie: setcookie('name', 'value', ['samesite' => 'Lax'])",
+      },
+    },
+  },
+
+  "Missing Subresource Integrity": {
+    what: "An external script is loaded without a Subresource Integrity (SRI) hash, so the browser cannot verify the file has not been tampered with.",
+    why: "If the CDN or third-party host is compromised, an attacker can modify the script to inject malicious code into your site. SRI ensures the browser only executes scripts that match the expected hash.",
+    remediation: {
+      generic: "Add an integrity attribute to external script tags:\n<script src=\"https://cdn.example.com/lib.js\" integrity=\"sha384-...\" crossorigin=\"anonymous\"></script>\nGenerate hashes with: openssl dgst -sha384 -binary lib.js | openssl base64 -A",
+    },
+  },
+
+  "Known vulnerable library": {
+    what: "A script URL matches a known vulnerable library version pattern.",
+    why: "Outdated JavaScript libraries often contain publicly disclosed vulnerabilities that attackers can exploit. These include XSS, prototype pollution, and remote code execution.",
+    remediation: {
+      generic: "Update to the latest stable version of the library. Check vulnerability databases (Snyk, npm audit) for specific CVEs and migration guides.",
+    },
+  },
+
+  "CORS origin reflection": {
+    what: "The server reflects the Origin header in the Access-Control-Allow-Origin response header, accepting requests from any origin.",
+    why: "Origin reflection is equivalent to a wildcard but bypasses the browser restriction that prevents credentials with wildcard origins. Attackers can make authenticated cross-origin requests from malicious sites.",
+    remediation: {
+      generic: "Validate the Origin header against an explicit allowlist of trusted origins. Never reflect the Origin header directly.",
+      frameworks: {
+        "Express": "const cors = require('cors');\napp.use(cors({ origin: ['https://trusted.example.com'], credentials: true }));",
+        "nginx": "Use a map block to validate $http_origin against allowed origins:\nmap $http_origin $cors_origin {\n  default '';\n  'https://trusted.example.com' $http_origin;\n}\nadd_header Access-Control-Allow-Origin $cors_origin;",
+      },
+    },
+  },
+
+  "CORS credential reflection": {
+    what: "The server reflects the Origin header AND sets Access-Control-Allow-Credentials: true, the most dangerous CORS misconfiguration.",
+    why: "This allows any website to make authenticated requests on behalf of the user. An attacker can read private data, perform actions, and fully impersonate the user via a malicious page.",
+    remediation: {
+      generic: "Never reflect the Origin header when Allow-Credentials is true. Use a strict allowlist of trusted origins.",
+      frameworks: {
+        "Express": "const cors = require('cors');\napp.use(cors({ origin: ['https://trusted.example.com'], credentials: true }));",
+        "nginx": "Validate $http_origin against a strict allowlist and only set Allow-Credentials for matched origins.",
+      },
+    },
+  },
+
+  "Wildcard CORS origin": {
+    what: "The server returns Access-Control-Allow-Origin: *, allowing any website to read responses from this server.",
+    why: "While wildcard CORS does not allow credentialed requests, it permits any site to read public API responses. This can expose internal data if the endpoint is not truly public.",
+    remediation: {
+      generic: "If the endpoint serves public data (e.g., a public API), wildcard is acceptable. Otherwise, restrict to specific trusted origins.",
+      frameworks: {
+        "Express": "const cors = require('cors');\napp.use(cors({ origin: 'https://trusted.example.com' }));",
+        "nginx": "add_header Access-Control-Allow-Origin 'https://trusted.example.com' always;",
+      },
+    },
+  },
+
   "Certificate chain incomplete": {
     what: "The server did not provide a complete certificate chain back to a trusted root CA.",
     why: "An incomplete chain may cause some clients to reject the certificate, especially on mobile devices or older systems that don't have the intermediate CA cached.",

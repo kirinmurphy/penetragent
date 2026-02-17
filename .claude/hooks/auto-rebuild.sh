@@ -10,75 +10,52 @@ cd "$(dirname "$0")/../.."
 
 # Setup logging
 LOG_FILE="$(pwd)/.claude/hooks/auto-rebuild.log"
-exec > >(tee -a "$LOG_FILE") 2>&1
-echo ""
-echo "=== Hook triggered at $(date) ==="
+CONTEXT_FILE="$(pwd)/.claude/hooks/work-context.txt"
+
+# Phase 1: Check phase — no exec redirect, just append to log quietly
+log_check() { echo "$1" >> "$LOG_FILE"; }
+
+log_check ""
+log_check "=== Hook triggered at $(date) ==="
 
 # Check if Docker is running
-echo "Checking Docker status..."
 if ! docker info > /dev/null 2>&1; then
-  echo "✗ Docker is not running, skipping rebuild check"
+  log_check "✗ Docker is not running, skipping rebuild check"
   exit 0
 fi
-echo "✓ Docker is running"
 
 # Check if containers are running
-echo "Checking container status..."
 SCANNER_RUNNING=$(docker ps --filter "name=infra-scanner-1" --format "{{.Names}}" 2>/dev/null || true)
 CONTROLLER_RUNNING=$(docker ps --filter "name=infra-controller-1" --format "{{.Names}}" 2>/dev/null || true)
 
-if [ -n "$SCANNER_RUNNING" ]; then
-  echo "  ✓ Scanner container running"
-fi
-if [ -n "$CONTROLLER_RUNNING" ]; then
-  echo "  ✓ Controller container running"
-fi
-
-# If no containers running, skip
 if [ -z "$SCANNER_RUNNING" ] && [ -z "$CONTROLLER_RUNNING" ]; then
-  echo "✗ No containers running, skipping rebuild"
+  log_check "✗ No containers running, skipping rebuild"
   exit 0
 fi
 
 # Check for uncommitted changes
-echo "Checking for uncommitted changes..."
 CHANGED_FILES=$( { git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u )
 
 if [ -z "$CHANGED_FILES" ]; then
-  echo "✓ No uncommitted changes found"
+  log_check "✓ No uncommitted changes found"
   exit 0
 fi
 
-echo "Found uncommitted changes:"
-echo "$CHANGED_FILES" | sed 's/^/  - /'
-
 # Define patterns that require rebuild (pattern:reason)
 REBUILD_PATTERNS=(
-  # Dependencies & runtime
   "package(-lock)?\.json$:Dependency changes"
   "\.nvmrc$|\.node-version$:Node version changes"
-
-  # Docker & infrastructure
   "^(Dockerfile|docker-compose|infra/):Docker/infrastructure changes"
   "\.dockerignore$:Docker ignore changes"
-
-  # Build configuration
   "tsconfig.*\.json$:TypeScript config changes"
   "\.swcrc$|\.babelrc:Build tool config changes"
-
-  # Shared package (compiled dependency)
   "^shared/src/:Shared package changes"
-
-  # Database & migrations
   "^scanner/src/db/:Database schema changes"
-
-  # Environment & startup
   "\.env:Environment variable changes"
   "^scripts/(startup|init|entrypoint):Startup script changes"
 )
 
 # Check if any pattern matches
-echo "Checking rebuild patterns..."
 REBUILD_REASON=""
 for pattern_entry in "${REBUILD_PATTERNS[@]}"; do
   pattern="${pattern_entry%%:*}"
@@ -86,19 +63,32 @@ for pattern_entry in "${REBUILD_PATTERNS[@]}"; do
 
   if echo "$CHANGED_FILES" | grep -q -E "$pattern"; then
     REBUILD_REASON="$reason"
-    echo "✓ Match found: $reason (pattern: $pattern)"
     break
   fi
 done
 
 if [ -z "$REBUILD_REASON" ]; then
-  echo "✓ No rebuild needed"
-  echo "=== Hook completed successfully ==="
+  log_check "✓ No rebuild needed"
   exit 0
 fi
 
+# Phase 2: Rebuild detected — clear log and use single exec redirect
+> "$LOG_FILE"
+exec > >(tee "$LOG_FILE") 2>&1
+echo "=== Rebuild at $(date) ==="
 echo ""
-echo "🔨 Rebuild required: $REBUILD_REASON"
+
+if [ -f "$CONTEXT_FILE" ]; then
+  echo "Work context:"
+  sed 's/^/  /' "$CONTEXT_FILE"
+  rm -f "$CONTEXT_FILE"
+  echo ""
+fi
+
+echo "Rebuild reason: $REBUILD_REASON"
+echo "Changed files:"
+echo "$CHANGED_FILES" | sed 's/^/  - /'
+echo ""
 echo "Running: npm run docker:down && npm run docker:dev:build"
 
 # Stop containers
@@ -132,18 +122,100 @@ if [ "$HEALTHY" = false ]; then
   exit 1
 fi
 
-# Run e2e verification if verify-e2e.sh exists
-if [ -f "./scripts/verify-e2e.sh" ]; then
-  echo "Running e2e verification..."
-  sleep 5
-  if ./scripts/verify-e2e.sh; then
-    echo "✓ E2E verification passed"
-  else
-    echo "✗ E2E verification failed"
-    exit 1
+SCANNER_URL="http://127.0.0.1:8080"
+SMOKE_TARGET="https://httpbin.org"
+SMOKE_POLL_MAX=120
+
+echo ""
+echo "--- Scanner smoke test ---"
+
+# 1. Health check — wait for scanner to be ready to serve requests
+echo "Checking /health..."
+HEALTH_OK=false
+for i in {1..15}; do
+  HEALTH=$(curl -sf "${SCANNER_URL}/health" 2>/dev/null || true)
+  if echo "$HEALTH" | grep -q '"ok":true'; then
+    HEALTH_OK=true
+    break
   fi
+  sleep 1
+done
+if [ "$HEALTH_OK" = false ]; then
+  echo "✗ /health did not return ok:true"
+  exit 1
+fi
+echo "✓ /health ok"
+
+# 2. Submit scan
+echo "Submitting scan for ${SMOKE_TARGET}..."
+SCAN_RESPONSE=$(curl -sf -X POST "${SCANNER_URL}/scan" \
+  -H "Content-Type: application/json" \
+  -d "{\"url\":\"${SMOKE_TARGET}\",\"requestedBy\":\"smoke-test\"}" 2>/dev/null || true)
+
+JOB_ID=$(echo "$SCAN_RESPONSE" | grep -o '"jobId":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+if [ -z "$JOB_ID" ]; then
+  echo "✗ Failed to create scan job"
+  echo "  Response: $SCAN_RESPONSE"
+  exit 1
+fi
+echo "✓ Job created: ${JOB_ID}"
+
+# 3. Poll until SUCCEEDED or FAILED
+echo "Polling job status (max ${SMOKE_POLL_MAX}s)..."
+FINAL_STATUS=""
+for i in $(seq 1 "$SMOKE_POLL_MAX"); do
+  JOB_JSON=$(curl -sf "${SCANNER_URL}/jobs/${JOB_ID}" 2>/dev/null || true)
+  STATUS=$(echo "$JOB_JSON" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+  if [ "$STATUS" = "SUCCEEDED" ] || [ "$STATUS" = "FAILED" ]; then
+    FINAL_STATUS="$STATUS"
+    echo "  Job reached ${STATUS} after ${i}s"
+    break
+  fi
+
+  if [ $((i % 10)) -eq 0 ]; then
+    echo "  ...${i}s (status: ${STATUS:-unknown})"
+  fi
+  sleep 1
+done
+
+if [ -z "$FINAL_STATUS" ]; then
+  echo "✗ Job did not complete within ${SMOKE_POLL_MAX}s"
+  exit 1
 fi
 
-echo "✓ Auto-rebuild complete"
+if [ "$FINAL_STATUS" = "FAILED" ]; then
+  ERROR_MSG=$(echo "$JOB_JSON" | grep -o '"errorMessage":"[^"]*"' | head -1 | cut -d'"' -f4)
+  echo "✗ Scan failed: ${ERROR_MSG}"
+  exit 1
+fi
+
+# 4. Verify response has expected fields
+HAS_SUMMARY=$(echo "$JOB_JSON" | grep -c '"summaryJson"' || true)
+HAS_PAGES=$(echo "$JOB_JSON" | grep -c '"pagesScanned"' || true)
+
+if [ "$HAS_SUMMARY" -eq 0 ] || [ "$HAS_PAGES" -eq 0 ]; then
+  echo "✗ Job response missing expected fields (summaryJson, pagesScanned)"
+  echo "  Response: $JOB_JSON"
+  exit 1
+fi
+echo "✓ Job response has summaryJson with pagesScanned"
+
+# 5. Verify HTML report is accessible
+HTML_STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "${SCANNER_URL}/reports/${JOB_ID}/html" 2>/dev/null || echo "000")
+if [ "$HTML_STATUS" = "200" ]; then
+  echo "✓ HTML report accessible (200)"
+else
+  echo "✗ HTML report returned status ${HTML_STATUS}"
+  exit 1
+fi
+
+# 6. Clean up the smoke test job
+curl -sf -X DELETE "${SCANNER_URL}/jobs/${JOB_ID}" > /dev/null 2>&1 || true
+echo "✓ Smoke test job cleaned up"
+
+echo ""
+echo "✓ Auto-rebuild complete (with smoke test)"
 echo "=== Hook completed successfully ==="
 exit 0

@@ -1,6 +1,6 @@
 import type { DetailedPeerCertificate } from "node:tls";
 import type { TlsCertificateData, TlsChainCertificate, TlsGrade } from "@penetragent/shared";
-import { GRADE } from "../scan-config.js";
+import { GRADE } from "../../grading/grade-config.js";
 import { TLS_SCAN_CONFIG } from "./tls-scan-config.js";
 
 interface CertificateAnalysis {

@@ -21,6 +21,29 @@ export interface DetectedTechnology {
   source: string;
 }
 
+export interface CookieIssue {
+  name: string;
+  url: string;
+  issues: string[];
+  raw: string;
+}
+
+export interface ScriptIssue {
+  url: string;
+  pageUrl: string;
+  issues: string[];
+  isExternal: boolean;
+  hasSri: boolean;
+  libraryMatch: string | null;
+}
+
+export interface CorsIssue {
+  url: string;
+  allowOrigin: string | null;
+  allowCredentials: boolean;
+  issues: string[];
+}
+
 export interface PageData {
   url: string;
   statusCode: number;
@@ -28,6 +51,12 @@ export interface PageData {
   headerGrades: HeaderGrade[];
   infoLeakage: { header: string; value: string }[];
   contentIssues: string[];
+  totalCookiesScanned?: number;
+  cookieIssues?: CookieIssue[];
+  totalExternalScripts?: number;
+  scriptIssues?: ScriptIssue[];
+  corsChecked?: boolean;
+  corsIssues?: CorsIssue[];
 }
 
 export interface HttpReportData {

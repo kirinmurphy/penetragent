@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { createUnifiedReport, loadUnifiedReport } from "../services/unified-report-service.js";
+import { createUnifiedReport, loadUnifiedReport } from "../reports/unified-report-service.js";
 import type { HttpReportData, HttpSummaryData } from "@penetragent/shared";
 
 let tempDir: string;

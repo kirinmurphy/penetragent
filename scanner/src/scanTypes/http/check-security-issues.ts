@@ -1,5 +1,5 @@
-import { HTTP_SCAN_CONFIG } from "../scan-config.js";
-import { gradeAllHeaders, detectInfoLeakage } from "../headers.js";
+import { HTTP_SCAN_CONFIG } from "./http-scan-config.js";
+import { gradeAllHeaders, detectInfoLeakage } from "./headers.js";
 import type { HeaderGrade } from "@penetragent/shared";
 
 export interface PageSecurityResult {

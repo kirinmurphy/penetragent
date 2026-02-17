@@ -1,6 +1,8 @@
-import { HTTP_SCAN_CONFIG } from "../scan-config.js";
+import { HTTP_SCAN_CONFIG } from "./http-scan-config.js";
 import { extractLinks } from "./extract-links.js";
 import { checkSecurityIssues } from "./check-security-issues.js";
+import { analyzeCookies } from "./analyze-cookies.js";
+import { analyzeScripts } from "./analyze-scripts.js";
 import type { PageData } from "@penetragent/shared";
 
 export interface FetchPageResult {
@@ -74,8 +76,17 @@ export async function fetchPage(
     const links = body ? extractLinks(body, finalUrl) : [];
     const metaGenerator = body ? extractMetaGenerator(body) : null;
 
+    const cookieResult = analyzeCookies(response, url);
+    const scriptResult = body ? analyzeScripts(body, finalUrl) : null;
+
     return {
-      page: { url, statusCode: response.status, contentType, headerGrades, infoLeakage, contentIssues },
+      page: {
+        url, statusCode: response.status, contentType, headerGrades, infoLeakage, contentIssues,
+        ...(cookieResult.totalScanned > 0 && { totalCookiesScanned: cookieResult.totalScanned }),
+        ...(cookieResult.issues.length > 0 && { cookieIssues: cookieResult.issues }),
+        ...(scriptResult && scriptResult.totalExternal > 0 && { totalExternalScripts: scriptResult.totalExternal }),
+        ...(scriptResult && scriptResult.issues.length > 0 && { scriptIssues: scriptResult.issues }),
+      },
       links,
       metaGenerator,
       redirectChain,
