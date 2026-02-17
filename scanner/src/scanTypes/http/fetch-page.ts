@@ -3,7 +3,7 @@ import { extractLinks } from "./extract-links.js";
 import { checkSecurityIssues } from "./check-security-issues.js";
 import type { PageData } from "@penetragent/shared";
 
-export interface CrawlPageResult {
+export interface FetchPageResult {
   page: PageData;
   links: string[];
   metaGenerator: string | null;
@@ -11,10 +11,11 @@ export interface CrawlPageResult {
 }
 
 function extractMetaGenerator(body: string): string | null {
-  const match = body.match(/<meta\s+name=["']generator["']\s+content=["']([^"']+)["']/i);
-  if (match) return match[1];
-  const altMatch = body.match(/<meta\s+content=["']([^"']+)["']\s+name=["']generator["']/i);
-  return altMatch ? altMatch[1] : null;
+  for (const pattern of HTTP_SCAN_CONFIG.metaGeneratorPatterns) {
+    const match = body.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
 }
 
 async function followRedirects(url: string): Promise<{ chain: string[]; response: Response }> {
@@ -41,10 +42,10 @@ async function followRedirects(url: string): Promise<{ chain: string[]; response
   throw new Error(`Too many redirects (max ${HTTP_SCAN_CONFIG.maxRedirects})`);
 }
 
-export async function crawlPage(
+export async function fetchPage(
   url: string,
   options?: { trackRedirects?: boolean },
-): Promise<CrawlPageResult> {
+): Promise<FetchPageResult> {
   try {
     let response: Response;
     let redirectChain: string[] | null = null;
@@ -67,7 +68,10 @@ export async function crawlPage(
       : "";
 
     const { headerGrades, infoLeakage, contentIssues } = checkSecurityIssues(response, body);
-    const links = body ? extractLinks(body, url) : [];
+    const finalUrl = redirectChain && redirectChain.length > 0
+      ? redirectChain[redirectChain.length - 1]
+      : (response.url || url);
+    const links = body ? extractLinks(body, finalUrl) : [];
     const metaGenerator = body ? extractMetaGenerator(body) : null;
 
     return {

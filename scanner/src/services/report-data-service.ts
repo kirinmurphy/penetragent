@@ -1,5 +1,7 @@
 import type { UnifiedReport, DetectedTechnology } from "@penetragent/shared";
 import { findExplanation, SECURITY_EXPLANATIONS, type SecurityExplanation } from "../scanTypes/security-explanations.js";
+import { HTTP_SCAN_CONFIG } from "../scanTypes/scan-config.js";
+import { computeWorstCaseGrades as computeWorstCaseGradesShared } from "../scanTypes/compute-worst-grades.js";
 
 export interface FrameworkFix {
   framework: string;
@@ -48,13 +50,6 @@ export interface ProcessedReportData {
   scannedPages: { url: string; statusCode: number; contentType: string | null }[];
   printChecklist: PrintChecklistItem[];
 }
-
-export const HTTP_CRITICAL_PATTERNS = [
-  "Missing Strict-Transport-Security",
-  "Missing Content-Security-Policy",
-  "Mixed content",
-  "XSS",
-];
 
 export function slugifyFramework(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -122,29 +117,7 @@ export function collectMatchedFrameworks(
 export function computeWorstCaseGrades(
   httpData: NonNullable<UnifiedReport["scans"]["http"]>,
 ): HeaderGradeSummary {
-  const worstGrade = new Map<string, string>();
-
-  for (const page of httpData.pages) {
-    for (const grade of page.headerGrades) {
-      const current = worstGrade.get(grade.header);
-      if (grade.grade === "missing" || (!current || current === "good") && grade.grade === "weak") {
-        worstGrade.set(grade.header, grade.grade);
-      } else if (!current) {
-        worstGrade.set(grade.header, grade.grade);
-      }
-    }
-  }
-
-  let good = 0;
-  let weak = 0;
-  let missing = 0;
-  for (const grade of worstGrade.values()) {
-    if (grade === "good") good++;
-    else if (grade === "weak") weak++;
-    else if (grade === "missing") missing++;
-  }
-
-  return { good, weak, missing };
+  return computeWorstCaseGradesShared(httpData.pages);
 }
 
 export function classifyAndSortIssues(config: {
@@ -157,7 +130,7 @@ export function classifyAndSortIssues(config: {
   return Array.from(issueMap.entries())
     .sort((a, b) => b[1].pages.length - a[1].pages.length)
     .map(([issue, { pages }]) => {
-      const isCritical = HTTP_CRITICAL_PATTERNS.some((p) => issue.includes(p));
+      const isCritical = HTTP_SCAN_CONFIG.criticalFindingPatterns.some((p) => issue.includes(p));
       const explanationKey = getExplanationKey(issue);
       const explanation = findExplanation(explanationKey);
 

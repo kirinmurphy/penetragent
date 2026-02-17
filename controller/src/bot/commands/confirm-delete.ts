@@ -1,7 +1,8 @@
 import type { Context } from "grammy";
 import type { ScannerClient } from "../../scanner-client/client.js";
 import type { DeleteConfirmationManager } from "../utils/delete-confirmation.js";
-import { CHAT_ACTION, DELETION_TYPE, deletionLabel } from "../constants.js";
+import { CHAT_ACTION, DELETION_TYPE } from "../constants.js";
+import { deletionLabel } from "../utils/deletion-label.js";
 
 export async function handleConfirmDelete(params: {
   ctx: Context;

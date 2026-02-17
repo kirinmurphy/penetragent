@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
-import { runHttpScan } from "../../scanTypes/crawl/index.js";
+import { runHttpScan } from "../../scanTypes/http/index.js";
 import type { HttpReportData, HttpSummaryData } from "@penetragent/shared";
 
 type HeaderMap = Record<string, string>;

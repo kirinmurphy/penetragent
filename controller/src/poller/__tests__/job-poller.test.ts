@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { JobPoller } from "../job-poller.js";
+import { createJobPoller, type JobPoller } from "../job-poller.js";
 import { JobStatus } from "@penetragent/shared";
 import type { Bot } from "grammy";
 import type { ScannerClient } from "../../scanner-client/client.js";
@@ -25,7 +25,13 @@ describe("JobPoller", () => {
       },
     } as unknown as Bot;
 
-    poller = new JobPoller(mockClient, mockBot, 1000, 10000, "http://scanner:8080");
+    poller = createJobPoller({
+      client: mockClient,
+      bot: mockBot,
+      pollIntervalMs: 1000,
+      pollTimeoutMs: 10000,
+      scannerBaseUrl: "http://scanner:8080",
+    });
   });
 
   afterEach(() => {
@@ -261,7 +267,7 @@ describe("JobPoller", () => {
         errorMessage: null,
         summaryJson: {
           headers: { good: 3, weak: 1, missing: 2 },
-          crawl: { pagesScanned: 15, issuesFound: 8 },
+          http: { pagesScanned: 15, issuesFound: 8 },
         },
         resolvedIpsJson: null,
         createdAt: "2024-01-01T00:00:00Z",
@@ -289,7 +295,7 @@ describe("JobPoller", () => {
 
       expect(actualChatId).toBe(chatId);
       expect(options!.caption).toContain("headers:");
-      expect(options!.caption).toContain("crawl:");
+      expect(options!.caption).toContain("http:");
       expect(options!.caption).toContain("Good: 3");
       expect(options!.caption).toContain("Pages Scanned: 15");
     });

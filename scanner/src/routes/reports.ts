@@ -43,9 +43,10 @@ export async function reportsRoutes(app: FastifyInstance): Promise<void> {
       const htmlContent = await fs.readFile(path.join(jobDir, htmlFile), "utf-8");
       return reply.type("text/html").send(htmlContent);
     } catch (err) {
+      request.log.error(err);
       return reply.code(500).send({
         error: "REPORT_READ_ERROR",
-        message: err instanceof Error ? err.message : String(err),
+        message: "Internal server error",
       });
     }
   });
@@ -72,9 +73,10 @@ export async function reportsRoutes(app: FastifyInstance): Promise<void> {
           message: `JSON report not found for job ${jobId}`,
         });
       }
+      request.log.error(err);
       return reply.code(500).send({
         error: "REPORT_READ_ERROR",
-        message: err instanceof Error ? err.message : String(err),
+        message: "Internal server error",
       });
     }
   });

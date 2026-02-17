@@ -12,7 +12,7 @@ import {
   verifyPublicOnly,
   DnsError,
 } from "../security/verify-public-only.js";
-import { runHttpScan } from "../scanTypes/crawl/index.js";
+import { runHttpScan } from "../scanTypes/http/index.js";
 import { createUnifiedReport } from "../services/unified-report-service.js";
 import { writeHtmlReport } from "../services/html-report-service.js";
 

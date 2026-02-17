@@ -71,7 +71,7 @@ describe("handleStatus", () => {
       errorMessage: null,
       summaryJson: {
         headers: { good: 3, weak: 1, missing: 2 },
-        crawl: { pagesScanned: 15, issuesFound: 8 },
+        http: { pagesScanned: 15, issuesFound: 8 },
       },
       resolvedIpsJson: null,
       createdAt: "2024-01-01T00:00:00Z",
@@ -88,7 +88,7 @@ describe("handleStatus", () => {
     const message = vi.mocked(mockContext.reply).mock.calls[0][0] as string;
 
     expect(message).toContain("headers:");
-    expect(message).toContain("crawl:");
+    expect(message).toContain("http:");
     expect(message).toMatch(/Good.*3/);
     expect(message).toMatch(/Pages Scanned.*15/);
   });

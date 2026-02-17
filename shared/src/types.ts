@@ -15,7 +15,7 @@ export const TERMINAL_STATUSES = new Set<JobStatusType>([
 ]);
 
 export const SCAN_TYPES = {
-  http: { name: "HTTP Analysis", description: "Crawls pages and analyzes HTTP security headers, content issues, and technology stack" },
+  http: { name: "HTTP Analysis", description: "Scans pages and analyzes HTTP security headers, content issues, and technology stack" },
 } as const;
 
 export type ScanTypeId = keyof typeof SCAN_TYPES;

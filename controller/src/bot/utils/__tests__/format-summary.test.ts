@@ -45,7 +45,7 @@ describe("formatSummary", () => {
   it("should format nested objects with proper indentation", () => {
     const summary = {
       headers: { good: 3, weak: 1, missing: 2 },
-      crawl: { pagesScanned: 15, issuesFound: 8 },
+      http: { pagesScanned: 15, issuesFound: 8 },
     };
 
     const lines = formatSummary(summary);
@@ -55,7 +55,7 @@ describe("formatSummary", () => {
       "    Good: 3",
       "    Weak: 1",
       "    Missing: 2",
-      "  crawl:",
+      "  http:",
       "    Pages Scanned: 15",
       "    Issues Found: 8",
     ]);

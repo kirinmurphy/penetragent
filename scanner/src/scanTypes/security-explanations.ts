@@ -130,7 +130,7 @@ export const SECURITY_EXPLANATIONS: Record<string, SecurityExplanation> = {
       frameworks: {
         "nginx": "server_tokens off;",
         "Apache": "ServerTokens Prod\nServerSignature Off",
-        "Express": "app.disable('x-powered-by') — Express doesn't set Server by default, this may be set by a reverse proxy.",
+        "Express": "Express does not set a Server header by default. If present, it is likely added by a reverse proxy (nginx, Apache) — suppress it there instead.",
       },
     },
   },

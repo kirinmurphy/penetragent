@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { runHttpScan } from "../scanTypes/crawl/index.js";
+import { runHttpScan } from "../scanTypes/http/index.js";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 
-describe("HTTP Scan (crawl)", () => {
+describe("HTTP Scan", () => {
   let testServer: FastifyInstance;
   const port = 9876;
   const baseUrl = `http://localhost:${port}`;
@@ -153,7 +153,7 @@ describe("HTTP Scan (crawl)", () => {
     expect(Array.isArray(summary.criticalFindings)).toBe(true);
   });
 
-  it("should limit crawl depth", async () => {
+  it("should limit scan depth", async () => {
     const { report, summary } = await runHttpScan(baseUrl);
 
     expect(report.pagesScanned).toBeLessThanOrEqual(20);

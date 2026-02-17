@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  ScannerClient,
+  createScannerClient,
+  type ScannerClient,
   RateLimitedError,
   ScannerUnavailableError,
   ScannerApiError,
@@ -13,7 +14,7 @@ describe("ScannerClient", () => {
   const baseUrl = "http://scanner:8080";
 
   beforeEach(() => {
-    client = new ScannerClient(baseUrl);
+    client = createScannerClient(baseUrl);
     vi.resetAllMocks();
   });
 

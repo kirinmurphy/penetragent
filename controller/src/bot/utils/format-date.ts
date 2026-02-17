@@ -1,13 +1,7 @@
+import { normalizeDate } from "./normalize-date.js";
+
 export function formatHumanDate(isoDateString: string): string {
-  let dateStr = isoDateString;
-
-  if (dateStr.includes(" ") && !dateStr.includes("T")) {
-    dateStr = dateStr.replace(" ", "T") + "Z";
-  }
-
-  if (dateStr.includes("T") && !dateStr.endsWith("Z") && !dateStr.includes("+") && !/[-]\d{2}:\d{2}$/.test(dateStr)) {
-    dateStr += "Z";
-  }
+  const dateStr = normalizeDate(isoDateString);
 
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) {

@@ -28,12 +28,12 @@ export const DELETION_TYPE = {
   ALL: "all",
 } as const;
 
-export function deletionLabel(
-  type: (typeof DELETION_TYPE)[keyof typeof DELETION_TYPE],
-  count: number,
-  identifier?: string,
-): string {
-  if (type === DELETION_TYPE.ALL) return "all scans";
-  if (type === DELETION_TYPE.JOB) return "scan";
-  return `scan${count > 1 ? "s" : ""} for ${identifier}`;
-}
+export const HISTORY_CONFIG = {
+  maxJobsLimit: 1000,
+  defaultRecentLimit: 100,
+  groupDisplayLimit: 10,
+} as const;
+
+export const CONFIRMATION_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+
+export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

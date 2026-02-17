@@ -1,4 +1,4 @@
-import { GRADE } from "./scan-config.js";
+import { GRADE, HEADER_RULES } from "./scan-config.js";
 import type { HeaderGrade } from "@penetragent/shared";
 
 export type { HeaderGrade };
@@ -13,12 +13,12 @@ export function gradeHsts(value: string | null): HeaderGrade {
     };
   }
 
-  const maxAgeMatch = value.match(/max-age=(\d+)/i);
+  const { minMaxAge, maxAgePattern, subDomainsPattern } = HEADER_RULES.hsts;
+  const maxAgeMatch = value.match(maxAgePattern);
   const maxAge = maxAgeMatch ? parseInt(maxAgeMatch[1], 10) : 0;
-  const hasSubDomains = /includeSubDomains/i.test(value);
-  const oneYear = 31536000;
+  const hasSubDomains = subDomainsPattern.test(value);
 
-  if (maxAge >= oneYear && hasSubDomains) {
+  if (maxAge >= minMaxAge && hasSubDomains) {
     return {
       header: "Strict-Transport-Security",
       value,
@@ -32,8 +32,8 @@ export function gradeHsts(value: string | null): HeaderGrade {
     value,
     grade: GRADE.WEAK,
     reason:
-      maxAge < oneYear
-        ? `max-age=${maxAge} is less than 1 year (${oneYear})`
+      maxAge < minMaxAge
+        ? `max-age=${maxAge} is less than 1 year (${minMaxAge})`
         : "Missing includeSubDomains",
   };
 }
@@ -48,8 +48,9 @@ export function gradeCsp(value: string | null): HeaderGrade {
     };
   }
 
-  const hasUnsafeInline = /unsafe-inline/i.test(value);
-  const hasUnsafeEval = /unsafe-eval/i.test(value);
+  const [unsafeInline, unsafeEval] = HEADER_RULES.csp.unsafeDirectives;
+  const hasUnsafeInline = unsafeInline.test(value);
+  const hasUnsafeEval = unsafeEval.test(value);
 
   if (hasUnsafeInline || hasUnsafeEval) {
     const issues: string[] = [];
@@ -83,14 +84,16 @@ export function gradeXContentTypeOptions(
     };
   }
 
+  const { expectedValue } = HEADER_RULES.xContentTypeOptions;
+  const isCorrect = value.toLowerCase() === expectedValue;
+
   return {
     header: "X-Content-Type-Options",
     value,
-    grade: value.toLowerCase() === "nosniff" ? GRADE.GOOD : GRADE.WEAK,
-    reason:
-      value.toLowerCase() === "nosniff"
-        ? "Correctly set to nosniff"
-        : `Unexpected value: ${value}`,
+    grade: isCorrect ? GRADE.GOOD : GRADE.WEAK,
+    reason: isCorrect
+      ? `Correctly set to ${expectedValue}`
+      : `Unexpected value: ${value}`,
   };
 }
 
@@ -105,7 +108,7 @@ export function gradeXFrameOptions(value: string | null): HeaderGrade {
   }
 
   const upper = value.toUpperCase();
-  if (upper === "DENY" || upper === "SAMEORIGIN") {
+  if (HEADER_RULES.xFrameOptions.validValues.includes(upper)) {
     return {
       header: "X-Frame-Options",
       value,
@@ -132,7 +135,7 @@ export function gradeReferrerPolicy(value: string | null): HeaderGrade {
     };
   }
 
-  if (value.toLowerCase() === "unsafe-url") {
+  if (HEADER_RULES.referrerPolicy.weakValues.includes(value.toLowerCase())) {
     return {
       header: "Referrer-Policy",
       value,
@@ -182,9 +185,9 @@ export function detectInfoLeakage(
   headers: Headers,
 ): { header: string; value: string }[] {
   const leaks: { header: string; value: string }[] = [];
-  const server = headers.get("server");
-  if (server) leaks.push({ header: "Server", value: server });
-  const poweredBy = headers.get("x-powered-by");
-  if (poweredBy) leaks.push({ header: "X-Powered-By", value: poweredBy });
+  for (const { key, display } of HEADER_RULES.infoLeakageHeaders) {
+    const value = headers.get(key);
+    if (value) leaks.push({ header: display, value });
+  }
   return leaks;
 }

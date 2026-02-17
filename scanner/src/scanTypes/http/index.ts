@@ -1,5 +1,6 @@
 import { HTTP_SCAN_CONFIG, GRADE } from "../scan-config.js";
-import { crawlPage } from "./crawl-page.js";
+import { computeWorstCaseGrades } from "../compute-worst-grades.js";
+import { fetchPage } from "./fetch-page.js";
 import type {
   PageData,
   HttpReportData,
@@ -7,12 +8,6 @@ import type {
 } from "@penetragent/shared";
 
 export type { PageData };
-
-const GRADE_SEVERITY: Record<string, number> = {
-  [GRADE.GOOD]: 0,
-  [GRADE.WEAK]: 1,
-  [GRADE.MISSING]: 2,
-};
 
 export async function runHttpScan(
   baseUrl: string,
@@ -27,7 +22,7 @@ export async function runHttpScan(
   while (toVisit.length > 0 && pages.length < maxPages) {
     const url = toVisit.shift()!;
     const isFirstPage = pages.length === 0;
-    const result = await crawlPage(url, { trackRedirects: isFirstPage });
+    const result = await fetchPage(url, { trackRedirects: isFirstPage });
 
     pages.push(result.page);
 
@@ -81,24 +76,7 @@ export async function runHttpScan(
     ),
   );
 
-  const worstByHeader = new Map<string, string>();
-  for (const page of pages) {
-    for (const grade of page.headerGrades) {
-      const current = worstByHeader.get(grade.header);
-      if (!current || GRADE_SEVERITY[grade.grade] > GRADE_SEVERITY[current]) {
-        worstByHeader.set(grade.header, grade.grade);
-      }
-    }
-  }
-
-  let good = 0;
-  let weak = 0;
-  let missing = 0;
-  for (const grade of worstByHeader.values()) {
-    if (grade === GRADE.GOOD) good++;
-    else if (grade === GRADE.WEAK) weak++;
-    else if (grade === GRADE.MISSING) missing++;
-  }
+  const { good, weak, missing } = computeWorstCaseGrades(pages);
 
   const summary: HttpSummaryData = {
     pagesScanned: pages.length,

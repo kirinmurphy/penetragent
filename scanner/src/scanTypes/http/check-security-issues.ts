@@ -17,14 +17,16 @@ export function checkSecurityIssues(
   const contentIssues: string[] = [];
 
   if (HTTP_SCAN_CONFIG.mixedContentCheck && response.url.startsWith("https://")) {
-    const httpResourceRegex = /src=["']http:\/\/[^"']+["']/gi;
-    if (httpResourceRegex.test(body)) {
+    const { mixedContent } = HTTP_SCAN_CONFIG.contentCheckPatterns;
+    mixedContent.lastIndex = 0;
+    if (mixedContent.test(body)) {
       contentIssues.push("Mixed content detected (HTTPS page with HTTP resources)");
     }
   }
 
   if (HTTP_SCAN_CONFIG.xssPatternCheck) {
-    if (body.includes("<script>alert(") || body.includes("javascript:")) {
+    const { xssIndicators } = HTTP_SCAN_CONFIG.contentCheckPatterns;
+    if (xssIndicators.some((pattern) => body.includes(pattern))) {
       contentIssues.push("Potential XSS pattern detected");
     }
   }

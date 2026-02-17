@@ -11,9 +11,10 @@ import { handleHistory } from "./commands/history.js";
 import { handleDelete } from "./commands/delete.js";
 import { handleConfirmDelete } from "./commands/confirm-delete.js";
 import { createDeleteConfirmationManager } from "./utils/delete-confirmation.js";
-import { ScannerClient } from "../scanner-client/client.js";
-import { JobPoller } from "../poller/job-poller.js";
-import { COMMAND } from "./constants.js";
+import { createScannerClient } from "../scanner-client/client.js";
+import { createJobPoller } from "../poller/job-poller.js";
+import type { JobPoller } from "../poller/job-poller.js";
+import { COMMAND, CONFIRMATION_CLEANUP_INTERVAL_MS } from "./constants.js";
 
 export interface BotContext {
   bot: Bot;
@@ -22,18 +23,18 @@ export interface BotContext {
 
 export function createBot(config: ControllerConfig): BotContext {
   const bot = new Bot(config.telegramBotToken);
-  const client = new ScannerClient(config.scannerBaseUrl);
-  const poller = new JobPoller(
+  const client = createScannerClient(config.scannerBaseUrl);
+  const poller = createJobPoller({
     client,
     bot,
-    config.pollIntervalMs,
-    config.pollTimeoutMs,
-    config.scannerBaseUrl,
-  );
+    pollIntervalMs: config.pollIntervalMs,
+    pollTimeoutMs: config.pollTimeoutMs,
+    scannerBaseUrl: config.scannerBaseUrl,
+  });
 
   const confirmationManager = createDeleteConfirmationManager();
 
-  setInterval(() => confirmationManager.cleanupExpired(), 5 * 60 * 1000);
+  setInterval(() => confirmationManager.cleanupExpired(), CONFIRMATION_CLEANUP_INTERVAL_MS);
 
   bot.use(allowlistMiddleware(config.telegramAllowedUserId));
 

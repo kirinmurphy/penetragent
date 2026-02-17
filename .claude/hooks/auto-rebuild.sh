@@ -102,7 +102,7 @@ echo "🔨 Rebuild required: $REBUILD_REASON"
 echo "Running: npm run docker:down && npm run docker:dev:build"
 
 # Stop containers
-npm run docker:down > /dev/null 2>&1
+npm run docker:down > /dev/null 2>&1 || true
 
 # Rebuild and start — wait for build to finish before checking health
 echo "Building containers..."

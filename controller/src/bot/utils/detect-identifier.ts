@@ -1,3 +1,5 @@
+import { UUID_PATTERN } from "../constants.js";
+
 export type IdentifierType = "jobId" | "targetId" | "url" | "unknown";
 
 export interface IdentifierResult {
@@ -14,8 +16,7 @@ export function detectIdentifier(input: string): IdentifierResult {
     return { type: "url", value: input };
   }
 
-  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (uuidPattern.test(input)) {
+  if (UUID_PATTERN.test(input)) {
     return { type: "jobId", value: input };
   }
 
