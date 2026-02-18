@@ -1,16 +1,16 @@
 import type { Context } from "grammy";
-
-const TELEGRAM_MSG_LIMIT = 4000;
+import { TUNING } from "../../tuning.js";
 
 export async function sendChunked(ctx: Context, header: string, lines: string[]): Promise<void> {
+  const limit = TUNING.telegram.messageCharLimit;
   let chunk = "";
   const allLines = [header, ...lines];
 
   for (const line of allLines) {
-    const segments = splitOversized(line, TELEGRAM_MSG_LIMIT);
+    const segments = splitOversized(line, limit);
 
     for (const segment of segments) {
-      const wouldOverflow = chunk.length + segment.length + 1 > TELEGRAM_MSG_LIMIT;
+      const wouldOverflow = chunk.length + segment.length + 1 > limit;
 
       if (wouldOverflow && chunk.length > 0) {
         await ctx.reply(chunk);

@@ -1,4 +1,4 @@
-import { GRADE } from "./grade-config.js";
+import { GRADE } from "../config/scan-rules.js";
 
 export interface GradeDistribution {
   good: number;

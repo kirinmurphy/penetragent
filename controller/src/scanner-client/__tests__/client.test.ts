@@ -7,7 +7,7 @@ import {
   ScannerApiError,
 } from "../client.js";
 import { JobStatus } from "@penetragent/shared";
-import type { JobPublic } from "@penetragent/shared";
+import { makeJob } from "../../__tests__/fixtures.js";
 
 describe("ScannerClient", () => {
   let client: ScannerClient;
@@ -19,7 +19,7 @@ describe("ScannerClient", () => {
   });
 
   describe("health", () => {
-    it("should return health status", async () => {
+    it("returns health status", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ok: true }),
@@ -31,7 +31,7 @@ describe("ScannerClient", () => {
       expect(global.fetch).toHaveBeenCalledWith(`${baseUrl}/health`, undefined);
     });
 
-    it("should throw ScannerUnavailableError on network error", async () => {
+    it("throws ScannerUnavailableError on network error", async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
 
       await expect(client.health()).rejects.toThrow(ScannerUnavailableError);
@@ -39,7 +39,7 @@ describe("ScannerClient", () => {
   });
 
   describe("listTargets", () => {
-    it("should return list of targets", async () => {
+    it("returns list of targets", async () => {
       const mockTargets = [
         { id: "example.com", base_url: "https://example.com", description: null },
       ];
@@ -54,7 +54,7 @@ describe("ScannerClient", () => {
       expect(result).toEqual(mockTargets);
     });
 
-    it("should throw ScannerApiError on non-ok response", async () => {
+    it("throws ScannerApiError on non-ok response", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 500,
@@ -66,22 +66,8 @@ describe("ScannerClient", () => {
   });
 
   describe("createScan", () => {
-    it("should create scan with URL", async () => {
-      const mockJob: JobPublic = {
-        jobId: "job-123",
-        targetId: "example.com",
-        scanType: "headers",
-        status: JobStatus.QUEUED,
-        requestedBy: "123456789",
-        errorCode: null,
-        errorMessage: null,
-        summaryJson: null,
-        resolvedIpsJson: null,
-        createdAt: "2024-01-01T00:00:00Z",
-        updatedAt: "2024-01-01T00:00:00Z",
-        startedAt: null,
-        finishedAt: null,
-      };
+    it("creates scan with URL", async () => {
+      const mockJob = makeJob({ jobId: "job-123", scanType: "headers" });
 
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -110,22 +96,8 @@ describe("ScannerClient", () => {
       );
     });
 
-    it("should create scan with targetId", async () => {
-      const mockJob: JobPublic = {
-        jobId: "job-456",
-        targetId: "example.com",
-        scanType: "headers",
-        status: JobStatus.QUEUED,
-        requestedBy: "123456789",
-        errorCode: null,
-        errorMessage: null,
-        summaryJson: null,
-        resolvedIpsJson: null,
-        createdAt: "2024-01-01T00:00:00Z",
-        updatedAt: "2024-01-01T00:00:00Z",
-        startedAt: null,
-        finishedAt: null,
-      };
+    it("creates scan with targetId", async () => {
+      const mockJob = makeJob({ jobId: "job-456", scanType: "headers" });
 
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -147,7 +119,7 @@ describe("ScannerClient", () => {
       );
     });
 
-    it("should throw RateLimitedError on 429 response", async () => {
+    it("throws RateLimitedError on 429 response", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 429,
@@ -166,7 +138,7 @@ describe("ScannerClient", () => {
       }
     });
 
-    it("should throw ScannerApiError on other error responses", async () => {
+    it("throws ScannerApiError on other error responses", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 400,
@@ -180,22 +152,15 @@ describe("ScannerClient", () => {
   });
 
   describe("getJob", () => {
-    it("should return job details", async () => {
-      const mockJob: JobPublic = {
+    it("returns job details", async () => {
+      const mockJob = makeJob({
         jobId: "job-789",
-        targetId: "example.com",
-        scanType: "headers",
         status: JobStatus.SUCCEEDED,
-        requestedBy: "123456789",
-        errorCode: null,
-        errorMessage: null,
         summaryJson: { good: 5, weak: 0, missing: 1 },
-        resolvedIpsJson: null,
-        createdAt: "2024-01-01T00:00:00Z",
-        updatedAt: "2024-01-01T00:01:00Z",
         startedAt: "2024-01-01T00:00:00Z",
+        updatedAt: "2024-01-01T00:01:00Z",
         finishedAt: "2024-01-01T00:01:00Z",
-      };
+      });
 
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -211,7 +176,7 @@ describe("ScannerClient", () => {
       );
     });
 
-    it("should throw ScannerApiError on 404", async () => {
+    it("throws ScannerApiError on 404", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 404,
@@ -225,7 +190,7 @@ describe("ScannerClient", () => {
   });
 
   describe("listJobs", () => {
-    it("should return paginated job list", async () => {
+    it("returns paginated job list", async () => {
       const mockResponse = {
         jobs: [],
         total: 0,
@@ -247,17 +212,10 @@ describe("ScannerClient", () => {
       );
     });
 
-    it("should use default parameters", async () => {
-      const mockResponse = {
-        jobs: [],
-        total: 0,
-        limit: 10,
-        offset: 0,
-      };
-
+    it("uses default parameters", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => mockResponse,
+        json: async () => ({ jobs: [], total: 0, limit: 10, offset: 0 }),
       });
 
       await client.listJobs();
@@ -268,7 +226,7 @@ describe("ScannerClient", () => {
       );
     });
 
-    it("should throw ScannerApiError on error", async () => {
+    it("throws ScannerApiError on error", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 500,
@@ -280,14 +238,14 @@ describe("ScannerClient", () => {
   });
 
   describe("error handling", () => {
-    it("should wrap network errors in ScannerUnavailableError", async () => {
+    it("wraps network errors in ScannerUnavailableError", async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error("Connection refused"));
 
       await expect(client.health()).rejects.toThrow(ScannerUnavailableError);
       await expect(client.health()).rejects.toThrow(/Connection refused/);
     });
 
-    it("should include base URL in error message", async () => {
+    it("includes base URL in error message", async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error("timeout"));
 
       try {

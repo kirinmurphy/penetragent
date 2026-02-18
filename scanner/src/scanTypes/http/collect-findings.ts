@@ -1,4 +1,4 @@
-import { GRADE } from "../../grading/grade-config.js";
+import { GRADE } from "../../config/scan-rules.js";
 import type { PageData } from "@penetragent/shared";
 
 export function collectFindingsByPage(

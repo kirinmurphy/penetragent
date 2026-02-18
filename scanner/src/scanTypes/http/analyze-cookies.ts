@@ -1,11 +1,5 @@
 import type { CookieIssue } from "@penetragent/shared";
-
-const COOKIE_ANALYSIS_CONFIG = {
-  checkHttpOnly: true,
-  checkSecure: true,
-  checkSameSite: true,
-  checkSameSiteNoneWithoutSecure: true,
-};
+import { COOKIE_ANALYSIS_CONFIG } from "../../config/scan-rules.js";
 
 function parseCookieName(raw: string): string {
   const eqIndex = raw.indexOf("=");

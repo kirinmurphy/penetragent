@@ -1,4 +1,4 @@
-import { HTTP_SCAN_CONFIG } from "./http-scan-config.js";
+import { HTTP_SCAN_CONFIG } from "../../config/scan-rules.js";
 import { computeWorstCaseGrades } from "./compute-worst-grades.js";
 import { fetchPage } from "./fetch-page.js";
 import { analyzeCors } from "./analyze-cors.js";

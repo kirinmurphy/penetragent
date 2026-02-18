@@ -1,7 +1,6 @@
 import type { TlsReportData, TlsSummaryData, TlsGrade } from "@penetragent/shared";
-import { GRADE } from "../../grading/grade-config.js";
+import { GRADE, TLS_SCAN_CONFIG } from "../../config/scan-rules.js";
 import { countGradeDistribution } from "../../grading/count-grades.js";
-import { TLS_SCAN_CONFIG } from "./tls-scan-config.js";
 import { connectTls, testProtocolSupport } from "./connect.js";
 import { analyzeCertificate } from "./analyze-certificate.js";
 import { gradeProtocols } from "./analyze-protocol.js";

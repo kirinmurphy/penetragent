@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   SECURITY_EXPLANATIONS,
   findExplanation,
-} from "../scanTypes/security-explanations.js";
+} from "../config/security-explanations.js";
 
 describe("SECURITY_EXPLANATIONS", () => {
   it("all entries have required fields", () => {

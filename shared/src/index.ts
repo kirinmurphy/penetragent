@@ -1,4 +1,10 @@
-export { JobStatus, TERMINAL_STATUSES, ErrorCode, SCAN_TYPES } from "./types.js";
+export {
+  JobStatus,
+  IN_PROGRESS_STATUSES,
+  TERMINAL_STATUSES,
+  ErrorCode,
+  SCAN_TYPES,
+} from "./types.js";
 export type { JobStatusType, ErrorCodeType, ScanTypeId } from "./types.js";
 
 export {

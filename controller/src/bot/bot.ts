@@ -14,7 +14,8 @@ import { createDeleteConfirmationManager } from "./utils/delete-confirmation.js"
 import { createScannerClient } from "../scanner-client/client.js";
 import { createJobPoller } from "../poller/job-poller.js";
 import type { JobPoller } from "../poller/job-poller.js";
-import { COMMAND, CONFIRMATION_CLEANUP_INTERVAL_MS } from "./constants.js";
+import { COMMAND } from "./constants.js";
+import { TUNING } from "../tuning.js";
 
 export interface BotContext {
   bot: Bot;
@@ -34,7 +35,7 @@ export function createBot(config: ControllerConfig): BotContext {
 
   const confirmationManager = createDeleteConfirmationManager();
 
-  setInterval(() => confirmationManager.cleanupExpired(), CONFIRMATION_CLEANUP_INTERVAL_MS);
+  setInterval(() => confirmationManager.cleanupExpired(), TUNING.confirmationCleanupIntervalMs);
 
   bot.use(allowlistMiddleware(config.telegramAllowedUserId));
 

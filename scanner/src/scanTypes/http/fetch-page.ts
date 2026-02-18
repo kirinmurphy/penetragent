@@ -1,4 +1,4 @@
-import { HTTP_SCAN_CONFIG } from "./http-scan-config.js";
+import { HTTP_SCAN_CONFIG } from "../../config/scan-rules.js";
 import { extractLinks } from "./extract-links.js";
 import { checkSecurityIssues } from "./check-security-issues.js";
 import { analyzeCookies } from "./analyze-cookies.js";

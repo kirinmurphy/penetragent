@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/auto-rebuild.sh\""
+            "command": "bash \"$(git rev-parse --show-toplevel)/scripts/auto-rebuild.sh\""
           }
         ]
       }

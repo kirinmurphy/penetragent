@@ -8,6 +8,11 @@
 - Avoid procedural comments (e.g. "// Get the user", "// Loop through items"). Comments are only for: TODOs, explanations of non-obvious logic, and lint rule exceptions
 - Flatten nested conditionals with early returns instead of if/else chains — each branch handles itself and returns, keeping everything at the same indentation level
 - When a handler has multiple distinct branches (e.g. different identifier types), extract each branch into a named function so the top-level handler reads as a flat dispatch
+- When conditional branches repeat the same operation (push/return) with identical object shapes, compute the varying fields first and perform the operation once — don't duplicate the push/return in every branch
+- Pure config/rules files (no procedural logic) go in `config/` directories within each package
+- When splitting a large file, keep the original as a thin orchestrator that re-exports from focused sub-modules — preserves the public API surface
+- When moving/renaming files, update all imports directly — don't leave bridge re-export files at old paths
+- File ordering: imports → constants/types → main exported function(s) → ancillary helper functions at the bottom. Only functions get hoisted below; constants and type definitions stay at the top. Within closures, the same rule applies: public-facing functions first, internal helpers after.
 
 # Testing Conventions
 

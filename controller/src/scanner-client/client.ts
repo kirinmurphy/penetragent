@@ -50,6 +50,9 @@ export function createScannerClient(baseUrl: string) {
   return {
     async health(): Promise<{ ok: boolean }> {
       const res = await fetchApi("/health");
+      if (!res.ok) {
+        throw new ScannerApiError(res.status, await res.text());
+      }
       return res.json() as Promise<{ ok: boolean }>;
     },
 

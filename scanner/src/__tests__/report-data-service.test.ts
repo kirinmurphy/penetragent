@@ -10,69 +10,7 @@ import {
   collectMatchedFrameworks,
   processReportData,
 } from "../reports/report-data-service.js";
-
-function makeHttpData(
-  overrides?: Partial<NonNullable<UnifiedReport["scans"]["http"]>>,
-): NonNullable<UnifiedReport["scans"]["http"]> {
-  return {
-    startUrl: "https://example.com",
-    pagesScanned: 2,
-    pages: [
-      {
-        url: "https://example.com",
-        statusCode: 200,
-        contentType: "text/html",
-        headerGrades: [
-          { header: "Strict-Transport-Security", value: null, grade: "missing", reason: "Header not present" },
-          { header: "Content-Security-Policy", value: "default-src 'self'", grade: "good", reason: "Present" },
-        ],
-        infoLeakage: [{ header: "Server", value: "Apache/2.4" }],
-        contentIssues: ["Mixed content detected on page"],
-      },
-      {
-        url: "https://example.com/about",
-        statusCode: 200,
-        contentType: "text/html",
-        headerGrades: [
-          { header: "Strict-Transport-Security", value: null, grade: "missing", reason: "Header not present" },
-          { header: "Content-Security-Policy", value: null, grade: "missing", reason: "Header not present" },
-        ],
-        infoLeakage: [],
-        contentIssues: [],
-      },
-    ],
-    findings: ["Missing Strict-Transport-Security header"],
-    redirectChain: ["https://example.com"],
-    metaGenerators: [],
-    timestamp: "2025-01-01T00:00:00Z",
-    ...overrides,
-  };
-}
-
-function makeReport(overrides?: Partial<UnifiedReport>): UnifiedReport {
-  return {
-    jobId: "test-job",
-    targetUrl: "https://example.com",
-    scanTypes: ["http"],
-    timestamp: "2025-01-15T12:00:00Z",
-    scans: { http: makeHttpData() },
-    summary: {
-      http: {
-        pagesScanned: 2,
-        issuesFound: 3,
-        good: 1,
-        weak: 0,
-        missing: 1,
-        criticalFindings: [],
-      },
-    },
-    detectedTechnologies: [
-      { name: "Apache", confidence: "high", source: "Server: Apache/2.4" },
-    ],
-    criticalFindings: [],
-    ...overrides,
-  };
-}
+import { makeHttpData, makePage, makeHeaderGrade, makeReport } from "./fixtures.js";
 
 describe("aggregateIssues", () => {
   const cases = [
@@ -88,16 +26,11 @@ describe("aggregateIssues", () => {
     {
       name: "captures weak header issues",
       input: makeHttpData({
-        pages: [{
-          url: "https://example.com",
-          statusCode: 200,
-          contentType: "text/html",
+        pages: [makePage({
           headerGrades: [
-            { header: "Referrer-Policy", value: "unsafe-url", grade: "weak", reason: "Leaks full URL" },
+            makeHeaderGrade({ header: "Referrer-Policy", value: "unsafe-url", grade: "weak", reason: "Leaks full URL" }),
           ],
-          infoLeakage: [],
-          contentIssues: [],
-        }],
+        })],
       }),
       expected: (result: Map<string, { pages: string[] }>) => {
         const weak = result.get("Weak Referrer-Policy: Leaks full URL");
@@ -107,7 +40,9 @@ describe("aggregateIssues", () => {
     },
     {
       name: "captures info leakage issues",
-      input: makeHttpData(),
+      input: makeHttpData({
+        pages: [makePage({ infoLeakage: [{ header: "Server", value: "Apache/2.4" }] })],
+      }),
       expected: (result: Map<string, { pages: string[] }>) => {
         const leak = result.get("Server header disclosed: Apache/2.4");
         expect(leak).toBeDefined();
@@ -116,7 +51,9 @@ describe("aggregateIssues", () => {
     },
     {
       name: "captures content issues",
-      input: makeHttpData(),
+      input: makeHttpData({
+        pages: [makePage({ contentIssues: ["Mixed content detected on page"] })],
+      }),
       expected: (result: Map<string, { pages: string[] }>) => {
         const content = result.get("Mixed content detected on page");
         expect(content).toBeDefined();
@@ -148,17 +85,12 @@ describe("computeWorstCaseGrades", () => {
     {
       name: "counts all good when no issues",
       input: makeHttpData({
-        pages: [{
-          url: "https://example.com",
-          statusCode: 200,
-          contentType: "text/html",
+        pages: [makePage({
           headerGrades: [
-            { header: "X-Content-Type-Options", value: "nosniff", grade: "good", reason: "OK" },
-            { header: "X-Frame-Options", value: "DENY", grade: "good", reason: "OK" },
+            makeHeaderGrade({ header: "X-Content-Type-Options" }),
+            makeHeaderGrade({ header: "X-Frame-Options", value: "DENY", reason: "OK" }),
           ],
-          infoLeakage: [],
-          contentIssues: [],
-        }],
+        })],
       }),
       expected: { good: 2, weak: 0, missing: 0 },
     },
@@ -166,26 +98,11 @@ describe("computeWorstCaseGrades", () => {
       name: "promotes good to missing when any page is missing",
       input: makeHttpData({
         pages: [
-          {
-            url: "https://example.com",
-            statusCode: 200,
-            contentType: "text/html",
-            headerGrades: [
-              { header: "CSP", value: "default-src 'self'", grade: "good", reason: "OK" },
-            ],
-            infoLeakage: [],
-            contentIssues: [],
-          },
-          {
+          makePage({ headerGrades: [makeHeaderGrade({ header: "CSP" })] }),
+          makePage({
             url: "https://example.com/about",
-            statusCode: 200,
-            contentType: "text/html",
-            headerGrades: [
-              { header: "CSP", value: null, grade: "missing", reason: "Not present" },
-            ],
-            infoLeakage: [],
-            contentIssues: [],
-          },
+            headerGrades: [makeHeaderGrade({ header: "CSP", value: null, grade: "missing", reason: "Not present" })],
+          }),
         ],
       }),
       expected: { good: 0, weak: 0, missing: 1 },
@@ -194,26 +111,11 @@ describe("computeWorstCaseGrades", () => {
       name: "promotes good to weak across pages",
       input: makeHttpData({
         pages: [
-          {
-            url: "https://example.com",
-            statusCode: 200,
-            contentType: "text/html",
-            headerGrades: [
-              { header: "Referrer-Policy", value: "strict-origin", grade: "good", reason: "OK" },
-            ],
-            infoLeakage: [],
-            contentIssues: [],
-          },
-          {
+          makePage({ headerGrades: [makeHeaderGrade({ header: "Referrer-Policy", value: "strict-origin", reason: "OK" })] }),
+          makePage({
             url: "https://example.com/about",
-            statusCode: 200,
-            contentType: "text/html",
-            headerGrades: [
-              { header: "Referrer-Policy", value: "unsafe-url", grade: "weak", reason: "Leaky" },
-            ],
-            infoLeakage: [],
-            contentIssues: [],
-          },
+            headerGrades: [makeHeaderGrade({ header: "Referrer-Policy", value: "unsafe-url", grade: "weak", reason: "Leaky" })],
+          }),
         ],
       }),
       expected: { good: 0, weak: 1, missing: 0 },

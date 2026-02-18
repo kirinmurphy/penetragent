@@ -11,3 +11,5 @@ reports/
 
 .DS_Store
 auto-rebuild.log
+
+.claude/hooks/work-context.txt

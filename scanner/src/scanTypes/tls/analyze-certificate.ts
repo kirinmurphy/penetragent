@@ -1,7 +1,6 @@
 import type { DetailedPeerCertificate } from "node:tls";
 import type { TlsCertificateData, TlsChainCertificate, TlsGrade } from "@penetragent/shared";
-import { GRADE } from "../../grading/grade-config.js";
-import { TLS_SCAN_CONFIG } from "./tls-scan-config.js";
+import { GRADE, TLS_SCAN_CONFIG } from "../../config/scan-rules.js";
 
 interface CertificateAnalysis {
   certificate: TlsCertificateData;
@@ -90,33 +89,35 @@ export function analyzeCertificate(config: {
     fingerprint: cert.fingerprint256 ?? cert.fingerprint,
   };
 
-  if (isExpired) {
-    grades.push({ check: "Certificate Validity", value: `Expired ${Math.abs(daysUntilExpiry)} days ago`, grade: GRADE.MISSING, reason: "Certificate expired" });
-  } else if (daysUntilExpiry <= TLS_SCAN_CONFIG.certExpiryWarningDays) {
-    grades.push({ check: "Certificate Validity", value: `Expires in ${daysUntilExpiry} days`, grade: GRADE.WEAK, reason: "Certificate expiring soon" });
-  } else {
-    grades.push({ check: "Certificate Validity", value: `Valid for ${daysUntilExpiry} days`, grade: GRADE.GOOD, reason: "Certificate is valid" });
-  }
+  const validity = isExpired
+    ? { value: `Expired ${Math.abs(daysUntilExpiry)} days ago`, grade: GRADE.MISSING, reason: "Certificate expired" }
+    : daysUntilExpiry <= TLS_SCAN_CONFIG.certExpiryWarningDays
+      ? { value: `Expires in ${daysUntilExpiry} days`, grade: GRADE.WEAK, reason: "Certificate expiring soon" }
+      : { value: `Valid for ${daysUntilExpiry} days`, grade: GRADE.GOOD, reason: "Certificate is valid" };
+  grades.push({ check: "Certificate Validity", ...validity });
 
-  if (isSelfSigned) {
-    grades.push({ check: "Certificate Trust", value: "Self-signed", grade: GRADE.MISSING, reason: "Self-signed certificate" });
-  } else {
-    grades.push({ check: "Certificate Trust", value: `Issued by ${issuer}`, grade: GRADE.GOOD, reason: "CA-issued certificate" });
-  }
+  grades.push({
+    check: "Certificate Trust",
+    value: isSelfSigned ? "Self-signed" : `Issued by ${issuer}`,
+    grade: isSelfSigned ? GRADE.MISSING : GRADE.GOOD,
+    reason: isSelfSigned ? "Self-signed certificate" : "CA-issued certificate",
+  });
 
-  if (hostnameMatch) {
-    grades.push({ check: "Hostname Match", value: hostname, grade: GRADE.GOOD, reason: "Hostname matches certificate" });
-  } else {
-    grades.push({ check: "Hostname Match", value: `${hostname} not in [${sans.join(", ")}]`, grade: GRADE.MISSING, reason: "Hostname mismatch" });
-  }
+  grades.push({
+    check: "Hostname Match",
+    value: hostnameMatch ? hostname : `${hostname} not in [${sans.join(", ")}]`,
+    grade: hostnameMatch ? GRADE.GOOD : GRADE.MISSING,
+    reason: hostnameMatch ? "Hostname matches certificate" : "Hostname mismatch",
+  });
 
   const chain = extractChain(cert);
   const chainComplete = chain.length > 0 && chain[chain.length - 1].isSelfSigned;
-  if (chainComplete) {
-    grades.push({ check: "Certificate Chain", value: `${chain.length} certificates`, grade: GRADE.GOOD, reason: "Complete chain to root CA" });
-  } else {
-    grades.push({ check: "Certificate Chain", value: `${chain.length} certificates`, grade: GRADE.WEAK, reason: "Certificate chain incomplete" });
-  }
+  grades.push({
+    check: "Certificate Chain",
+    value: `${chain.length} certificates`,
+    grade: chainComplete ? GRADE.GOOD : GRADE.WEAK,
+    reason: chainComplete ? "Complete chain to root CA" : "Certificate chain incomplete",
+  });
 
   return { certificate, chain, grades };
 }

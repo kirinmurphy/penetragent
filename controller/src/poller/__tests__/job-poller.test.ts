@@ -3,7 +3,7 @@ import { createJobPoller, type JobPoller } from "../job-poller.js";
 import { JobStatus } from "@penetragent/shared";
 import type { Bot } from "grammy";
 import type { ScannerClient } from "../../scanner-client/client.js";
-import type { JobPublic, JobListResponse } from "@penetragent/shared";
+import { makeJob, makeJobListResponse } from "../../__tests__/fixtures.js";
 
 describe("JobPoller", () => {
   let mockClient: ScannerClient;
@@ -41,163 +41,43 @@ describe("JobPoller", () => {
   });
 
   describe("recoverInProgressJobs", () => {
-    it("should resume polling for RUNNING jobs", async () => {
-      const runningJob: JobPublic = {
-        jobId: "job-1",
-        targetId: "example.com",
-        scanType: "http",
-        status: JobStatus.RUNNING,
-        requestedBy: "123456789",
-        errorCode: null,
-        errorMessage: null,
-        summaryJson: null,
-        resolvedIpsJson: null,
-        createdAt: "2024-01-01T00:00:00Z",
-        updatedAt: "2024-01-01T00:00:00Z",
-        startedAt: "2024-01-01T00:00:00Z",
-        finishedAt: null,
-      };
-
-      const response: JobListResponse = {
-        jobs: [runningJob],
-        total: 1,
-        limit: 100,
-        offset: 0,
-      };
-
-      vi.mocked(mockClient.listJobs).mockResolvedValue(response);
-
-      await poller.recoverInProgressJobs();
-
-      expect(mockClient.listJobs).toHaveBeenCalledWith({ limit: 100, status: "RUNNING,QUEUED" });
-    });
-
-    it("should resume polling for QUEUED jobs", async () => {
-      const queuedJob: JobPublic = {
-        jobId: "job-2",
-        targetId: "example.com",
-        scanType: "http",
-        status: JobStatus.QUEUED,
-        requestedBy: "123456789",
-        errorCode: null,
-        errorMessage: null,
-        summaryJson: null,
-        resolvedIpsJson: null,
-        createdAt: "2024-01-01T00:00:00Z",
-        updatedAt: "2024-01-01T00:00:00Z",
-        startedAt: null,
-        finishedAt: null,
-      };
-
-      const response: JobListResponse = {
-        jobs: [queuedJob],
-        total: 1,
-        limit: 100,
-        offset: 0,
-      };
-
-      vi.mocked(mockClient.listJobs).mockResolvedValue(response);
-
-      await poller.recoverInProgressJobs();
-
-      expect(mockClient.listJobs).toHaveBeenCalledWith({ limit: 100, status: "RUNNING,QUEUED" });
-    });
-
-    it("should ignore SUCCEEDED jobs", async () => {
-      const succeededJob: JobPublic = {
-        jobId: "job-3",
-        targetId: "example.com",
-        scanType: "http",
-        status: JobStatus.SUCCEEDED,
-        requestedBy: "123456789",
-        errorCode: null,
-        errorMessage: null,
-        summaryJson: { good: 5, weak: 0, missing: 1 },
-        resolvedIpsJson: null,
-        createdAt: "2024-01-01T00:00:00Z",
-        updatedAt: "2024-01-01T00:01:00Z",
-        startedAt: "2024-01-01T00:00:00Z",
-        finishedAt: "2024-01-01T00:01:00Z",
-      };
-
-      const response: JobListResponse = {
-        jobs: [succeededJob],
-        total: 1,
-        limit: 100,
-        offset: 0,
-      };
-
-      vi.mocked(mockClient.listJobs).mockResolvedValue(response);
-
-      await poller.recoverInProgressJobs();
-
-      expect(mockClient.listJobs).toHaveBeenCalled();
-    });
-
-    it("should handle multiple in-progress jobs", async () => {
-      const jobs: JobPublic[] = [
-        {
-          jobId: "job-1",
-          targetId: "example.com",
-          scanType: "http",
-          status: JobStatus.RUNNING,
-          requestedBy: "123456789",
-          errorCode: null,
-          errorMessage: null,
-          summaryJson: null,
-          resolvedIpsJson: null,
-          createdAt: "2024-01-01T00:00:00Z",
-          updatedAt: "2024-01-01T00:00:00Z",
-          startedAt: "2024-01-01T00:00:00Z",
-          finishedAt: null,
-        },
-        {
-          jobId: "job-2",
-          targetId: "example.org",
-          scanType: "http",
-          status: JobStatus.QUEUED,
-          requestedBy: "987654321",
-          errorCode: null,
-          errorMessage: null,
-          summaryJson: null,
-          resolvedIpsJson: null,
-          createdAt: "2024-01-01T00:00:01Z",
-          updatedAt: "2024-01-01T00:00:01Z",
-          startedAt: null,
-          finishedAt: null,
-        },
-      ];
-
-      const response: JobListResponse = {
-        jobs,
-        total: 2,
-        limit: 100,
-        offset: 0,
-      };
-
-      vi.mocked(mockClient.listJobs).mockResolvedValue(response);
-
-      await poller.recoverInProgressJobs();
-
-      expect(mockClient.listJobs).toHaveBeenCalledWith({ limit: 100, status: "RUNNING,QUEUED" });
-    });
-
-    it("should handle empty job list", async () => {
-      const response: JobListResponse = {
+    const recoverCases = [
+      {
+        name: "resumes polling for a RUNNING job",
+        jobs: [makeJob({ jobId: "job-1", status: JobStatus.RUNNING, startedAt: "2024-01-01T00:00:00Z" })],
+      },
+      {
+        name: "resumes polling for a QUEUED job",
+        jobs: [makeJob({ jobId: "job-2", status: JobStatus.QUEUED })],
+      },
+      {
+        name: "passes SUCCEEDED jobs through (filtered by server)",
+        jobs: [makeJob({ jobId: "job-3", status: JobStatus.SUCCEEDED, summaryJson: { good: 5 }, finishedAt: "2024-01-01T00:01:00Z" })],
+      },
+      {
+        name: "handles multiple in-progress jobs",
+        jobs: [
+          makeJob({ jobId: "job-1", status: JobStatus.RUNNING, startedAt: "2024-01-01T00:00:00Z" }),
+          makeJob({ jobId: "job-2", targetId: "example.org", status: JobStatus.QUEUED, requestedBy: "987654321" }),
+        ],
+      },
+      {
+        name: "handles empty job list",
         jobs: [],
-        total: 0,
-        limit: 100,
-        offset: 0,
-      };
+      },
+    ];
 
-      vi.mocked(mockClient.listJobs).mockResolvedValue(response);
+    for (const { name, jobs } of recoverCases) {
+      it(name, async () => {
+        vi.mocked(mockClient.listJobs).mockResolvedValue(makeJobListResponse(jobs));
 
-      await poller.recoverInProgressJobs();
+        await poller.recoverInProgressJobs();
 
-      expect(mockClient.listJobs).toHaveBeenCalled();
-    });
+        expect(mockClient.listJobs).toHaveBeenCalledWith({ limit: 100, status: "RUNNING,QUEUED" });
+      });
+    }
 
-    it("should handle scanner client errors gracefully", async () => {
+    it("handles scanner client errors gracefully", async () => {
       vi.mocked(mockClient.listJobs).mockRejectedValue(
         new Error("Scanner unavailable"),
       );
@@ -205,31 +85,10 @@ describe("JobPoller", () => {
       await expect(poller.recoverInProgressJobs()).resolves.toBeUndefined();
     });
 
-    it("should skip jobs with invalid requestedBy", async () => {
-      const invalidJob: JobPublic = {
-        jobId: "job-bad",
-        targetId: "example.com",
-        scanType: "http",
-        status: JobStatus.RUNNING,
-        requestedBy: "not-a-number",
-        errorCode: null,
-        errorMessage: null,
-        summaryJson: null,
-        resolvedIpsJson: null,
-        createdAt: "2024-01-01T00:00:00Z",
-        updatedAt: "2024-01-01T00:00:00Z",
-        startedAt: "2024-01-01T00:00:00Z",
-        finishedAt: null,
-      };
-
-      const response: JobListResponse = {
-        jobs: [invalidJob],
-        total: 1,
-        limit: 100,
-        offset: 0,
-      };
-
-      vi.mocked(mockClient.listJobs).mockResolvedValue(response);
+    it("skips jobs with invalid requestedBy", async () => {
+      vi.mocked(mockClient.listJobs).mockResolvedValue(
+        makeJobListResponse([makeJob({ jobId: "job-bad", status: JobStatus.RUNNING, requestedBy: "not-a-number" })]),
+      );
 
       await poller.recoverInProgressJobs();
 
@@ -238,45 +97,29 @@ describe("JobPoller", () => {
   });
 
   describe("startPolling", () => {
-    it("should prevent duplicate polling for the same job", () => {
-      const jobId = "job-123";
-      const chatId = 123456789;
-
-      poller.startPolling(jobId, chatId);
-      poller.startPolling(jobId, chatId);
+    it("prevents duplicate polling for the same job", () => {
+      poller.startPolling("job-123", 123456789);
+      poller.startPolling("job-123", 123456789);
     });
 
-    it("should start polling for a new job", () => {
-      const jobId = "job-456";
-      const chatId = 123456789;
-
-      expect(() => poller.startPolling(jobId, chatId)).not.toThrow();
+    it("starts polling for a new job", () => {
+      expect(() => poller.startPolling("job-456", 123456789)).not.toThrow();
     });
 
-    it("should send document with summary as caption for succeeded jobs", async () => {
+    it("sends document with summary as caption for succeeded jobs", async () => {
       const jobId = "job-with-nested-summary";
       const chatId = 123456789;
 
-      const completedJob: JobPublic = {
+      vi.mocked(mockClient.getJob).mockResolvedValue(makeJob({
         jobId,
-        targetId: "example.com",
         scanType: "all",
         status: JobStatus.SUCCEEDED,
-        requestedBy: "123456789",
-        errorCode: null,
-        errorMessage: null,
         summaryJson: {
           headers: { good: 3, weak: 1, missing: 2 },
           http: { pagesScanned: 15, issuesFound: 8 },
         },
-        resolvedIpsJson: null,
-        createdAt: "2024-01-01T00:00:00Z",
-        updatedAt: "2024-01-01T00:01:00Z",
-        startedAt: "2024-01-01T00:00:00Z",
         finishedAt: "2024-01-01T00:01:00Z",
-      };
-
-      vi.mocked(mockClient.getJob).mockResolvedValue(completedJob);
+      }));
 
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
         ok: true,
@@ -300,27 +143,16 @@ describe("JobPoller", () => {
       expect(options!.caption).toContain("Pages Scanned: 15");
     });
 
-    it("should use targetId and date in the report filename", async () => {
+    it("uses targetId and date in the report filename", async () => {
       const jobId = "job-filename-test";
       const chatId = 123456789;
 
-      const completedJob: JobPublic = {
+      vi.mocked(mockClient.getJob).mockResolvedValue(makeJob({
         jobId,
-        targetId: "example.com",
-        scanType: "http",
         status: JobStatus.SUCCEEDED,
-        requestedBy: "123456789",
-        errorCode: null,
-        errorMessage: null,
         summaryJson: { good: 5 },
-        resolvedIpsJson: null,
-        createdAt: "2024-01-01T00:00:00Z",
-        updatedAt: "2024-01-01T00:01:00Z",
-        startedAt: "2024-01-01T00:00:00Z",
         finishedAt: "2024-03-15T10:30:00Z",
-      };
-
-      vi.mocked(mockClient.getJob).mockResolvedValue(completedJob);
+      }));
 
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
         ok: true,
@@ -334,27 +166,16 @@ describe("JobPoller", () => {
       expect(inputFile).toHaveProperty("filename", "example.com-2024-03-15.html");
     });
 
-    it("should fall back to sendMessage when report fetch fails", async () => {
+    it("falls back to sendMessage when report fetch fails", async () => {
       const jobId = "job-report-fail";
       const chatId = 123456789;
 
-      const completedJob: JobPublic = {
+      vi.mocked(mockClient.getJob).mockResolvedValue(makeJob({
         jobId,
-        targetId: "example.com",
-        scanType: "http",
         status: JobStatus.SUCCEEDED,
-        requestedBy: "123456789",
-        errorCode: null,
-        errorMessage: null,
         summaryJson: { good: 5, weak: 0, missing: 1 },
-        resolvedIpsJson: null,
-        createdAt: "2024-01-01T00:00:00Z",
-        updatedAt: "2024-01-01T00:01:00Z",
-        startedAt: "2024-01-01T00:00:00Z",
         finishedAt: "2024-01-01T00:01:00Z",
-      };
-
-      vi.mocked(mockClient.getJob).mockResolvedValue(completedJob);
+      }));
 
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
         ok: false,

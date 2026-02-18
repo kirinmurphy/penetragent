@@ -70,10 +70,7 @@ export async function executeScan(
       console.error(`Failed to write HTML report for job ${job.id}:`, htmlErr);
     }
 
-    const finalSummary = summaryResult.http && summaryResult.tls
-      ? summaryResult
-      : summaryResult.http ?? summaryResult.tls ?? {};
-    transitionToSucceeded(db, job.id, JSON.stringify(finalSummary));
+    transitionToSucceeded(db, job.id, JSON.stringify(summaryResult));
   } catch (err) {
     transitionToFailed(
       db,

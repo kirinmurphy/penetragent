@@ -1,16 +1,5 @@
 import type { ScriptIssue } from "@penetragent/shared";
-
-const SCRIPT_ANALYSIS_CONFIG = {
-  checkSri: true,
-  vulnerablePatterns: [
-    { pattern: /jquery[.-]1\./i, label: "jQuery 1.x (known vulnerabilities)" },
-    { pattern: /jquery[.-]2\./i, label: "jQuery 2.x (known vulnerabilities)" },
-    { pattern: /angular[.-]1\./i, label: "AngularJS 1.x (end of life)" },
-    { pattern: /bootstrap[.-]2\./i, label: "Bootstrap 2.x (known vulnerabilities)" },
-    { pattern: /bootstrap[.-]3\./i, label: "Bootstrap 3.x (known vulnerabilities)" },
-    { pattern: /lodash[.-][123]\./i, label: "Lodash <4.x (prototype pollution)" },
-  ],
-};
+import { SCRIPT_ANALYSIS_CONFIG } from "../../config/scan-rules.js";
 
 const SCRIPT_TAG_PATTERN = /<script\b([^>]*)(?:\/>|>([\s\S]*?)<\/script>)/gi;
 const SRC_ATTR_PATTERN = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)')/i;

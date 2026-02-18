@@ -1,77 +1,5 @@
 import type { DetectedTechnology } from "@penetragent/shared";
-
-interface TechRule {
-  name: string;
-  urlPatterns?: RegExp[];
-  headerMatches?: { header: string; pattern: RegExp }[];
-  metaGeneratorPatterns?: RegExp[];
-  certIssuerPatterns?: RegExp[];
-}
-
-const TECH_RULES: TechRule[] = [
-  {
-    name: "WordPress",
-    urlPatterns: [/\/wp-content\//, /\/wp-includes\//, /\/wp-admin\//, /\/wp-json\//],
-    metaGeneratorPatterns: [/WordPress/i],
-  },
-  {
-    name: "Drupal",
-    urlPatterns: [/\/sites\/default\//, /\/modules\//, /\/themes\/contrib\//],
-    metaGeneratorPatterns: [/Drupal/i],
-  },
-  {
-    name: "Joomla",
-    urlPatterns: [/\/components\/com_/, /\/media\/jui\//],
-    metaGeneratorPatterns: [/Joomla/i],
-  },
-  {
-    name: "Next.js",
-    urlPatterns: [/\/_next\//, /\/__next\//],
-    metaGeneratorPatterns: [/Next\.js/i],
-  },
-  {
-    name: "Nuxt.js",
-    urlPatterns: [/\/_nuxt\//],
-    metaGeneratorPatterns: [/Nuxt/i],
-  },
-  {
-    name: "Hugo",
-    metaGeneratorPatterns: [/Hugo/i],
-  },
-  {
-    name: "Ghost",
-    metaGeneratorPatterns: [/Ghost/i],
-  },
-  {
-    name: "nginx",
-    headerMatches: [{ header: "Server", pattern: /nginx/i }],
-  },
-  {
-    name: "Apache",
-    headerMatches: [{ header: "Server", pattern: /Apache/i }],
-  },
-  {
-    name: "Express",
-    headerMatches: [{ header: "X-Powered-By", pattern: /Express/i }],
-  },
-  {
-    name: "PHP",
-    headerMatches: [{ header: "X-Powered-By", pattern: /PHP/i }],
-  },
-  {
-    name: "ASP.NET",
-    headerMatches: [{ header: "X-Powered-By", pattern: /ASP\.NET/i }],
-  },
-  {
-    name: "Cloudflare",
-    headerMatches: [{ header: "Server", pattern: /cloudflare/i }],
-    certIssuerPatterns: [/Cloudflare/i],
-  },
-  {
-    name: "Let's Encrypt",
-    certIssuerPatterns: [/Let's Encrypt|R3$|E1$|R10$|R11$/i],
-  },
-];
+import { TECH_RULES, CONFIDENCE_RANK } from "../config/scan-rules.js";
 
 interface DetectionInput {
   urls: string[];
@@ -79,8 +7,6 @@ interface DetectionInput {
   metaGeneratorValues: string[];
   tlsCertIssuer?: string;
 }
-
-const CONFIDENCE_RANK = { high: 3, medium: 2, low: 1 } as const;
 
 export function detectTechnologies(input: DetectionInput): DetectedTechnology[] {
   const found = new Map<string, DetectedTechnology>();

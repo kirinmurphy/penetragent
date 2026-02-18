@@ -28,12 +28,4 @@ export const DELETION_TYPE = {
   ALL: "all",
 } as const;
 
-export const HISTORY_CONFIG = {
-  maxJobsLimit: 1000,
-  defaultRecentLimit: 100,
-  groupDisplayLimit: 10,
-} as const;
-
-export const CONFIRMATION_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
-
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

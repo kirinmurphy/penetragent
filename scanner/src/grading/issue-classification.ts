@@ -1,18 +1,8 @@
-export const ISSUE_CATEGORY_PREFIXES = {
-  cookies: ["Missing HttpOnly", "Missing Secure flag", "Missing SameSite", "SameSite=None"],
-  scripts: ["Missing Subresource Integrity", "Known vulnerable library"],
-  cors: ["CORS", "Wildcard CORS"],
-} as const;
+import { ISSUE_CATEGORY_PREFIXES } from "../config/scan-rules.js";
+import type { IssueCategory } from "../config/scan-rules.js";
 
-export type IssueCategory = "headers" | "cookies" | "scripts" | "cors";
-
-export const SECTION_LABELS: Record<string, string> = {
-  headers: "Security Headers",
-  cookies: "Cookie Security",
-  scripts: "Script & Dependency Security",
-  cors: "CORS Configuration",
-  tls: "SSL/TLS",
-};
+export type { IssueCategory };
+export { ISSUE_CATEGORY_PREFIXES, SECTION_LABELS } from "../config/scan-rules.js";
 
 export function classifyByPrefix<T>(config: {
   items: T[];

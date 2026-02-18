@@ -1,9 +1,5 @@
 import type { CorsIssue } from "@penetragent/shared";
-
-const CORS_ANALYSIS_CONFIG = {
-  testOrigin: "https://evil.example.com",
-  timeoutMs: 10_000,
-};
+import { CORS_ANALYSIS_CONFIG } from "../../config/scan-rules.js";
 
 export async function analyzeCors(url: string): Promise<CorsIssue[]> {
   try {
