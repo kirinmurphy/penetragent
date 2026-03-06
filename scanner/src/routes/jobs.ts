@@ -9,18 +9,25 @@ import {
   deleteJobsByTarget,
   deleteAllJobs,
 } from "../services/job-service.js";
-import fs from "node:fs";
+import fs from "node:fs/promises";
 import path from "node:path";
 
 export async function jobsRoutes(app: FastifyInstance): Promise<void> {
   app.delete("/jobs/all", async () => {
     const deleted = deleteAllJobs(app.db);
-    removeAllReportDirs(app.config.reportsDir);
+    await removeAllReportDirs(app.config.reportsDir);
     return { deleted };
   });
 
-  app.get("/jobs", async (request) => {
-    const query = JobListQuerySchema.parse(request.query);
+  app.get("/jobs", async (request, reply) => {
+    const parsed = JobListQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: ErrorCode.VALIDATION_ERROR,
+        details: parsed.error.flatten(),
+      });
+    }
+    const query = parsed.data;
 
     const { jobs, total } = query.targetId
       ? listJobsByTarget(app.db, query.targetId, query.limit, query.offset)
@@ -35,7 +42,14 @@ export async function jobsRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.delete("/jobs", async (request, reply) => {
-    const query = JobListQuerySchema.parse(request.query);
+    const parsed = JobListQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: ErrorCode.VALIDATION_ERROR,
+        details: parsed.error.flatten(),
+      });
+    }
+    const query = parsed.data;
 
     if (!query.targetId) {
       return reply.status(400).send({ error: "targetId query parameter required" });
@@ -45,7 +59,7 @@ export async function jobsRoutes(app: FastifyInstance): Promise<void> {
     const deleted = deleteJobsByTarget(app.db, query.targetId);
 
     for (const job of jobs) {
-      removeReportDir(app.config.reportsDir, job.id);
+      await removeReportDir(app.config.reportsDir, job.id);
     }
 
     return { deleted };
@@ -80,17 +94,23 @@ export async function jobsRoutes(app: FastifyInstance): Promise<void> {
   );
 }
 
-function removeReportDir(reportsDir: string, jobId: string): void {
-  fs.rmSync(path.join(reportsDir, jobId), { recursive: true, force: true });
+async function removeReportDir(reportsDir: string, jobId: string): Promise<void> {
+  await fs.rm(path.join(reportsDir, jobId), { recursive: true, force: true });
 }
 
-function removeAllReportDirs(reportsDir: string): void {
-  if (!fs.existsSync(reportsDir)) return;
+async function removeAllReportDirs(reportsDir: string): Promise<void> {
+  let entries: string[];
+  try {
+    entries = await fs.readdir(reportsDir);
+  } catch {
+    return;
+  }
 
-  for (const entry of fs.readdirSync(reportsDir)) {
+  for (const entry of entries) {
     const entryPath = path.join(reportsDir, entry);
-    if (fs.statSync(entryPath).isDirectory()) {
-      fs.rmSync(entryPath, { recursive: true, force: true });
+    const stat = await fs.stat(entryPath).catch(() => null);
+    if (stat?.isDirectory()) {
+      await fs.rm(entryPath, { recursive: true, force: true });
     }
   }
 }

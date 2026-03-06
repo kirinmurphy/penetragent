@@ -6,12 +6,20 @@ import { analyzeCertificate } from "./analyze-certificate.js";
 import { gradeProtocols } from "./analyze-protocol.js";
 import { analyzeCipher } from "./analyze-cipher.js";
 
+interface TlsScanOptions {
+  verifyUrl?: (url: URL) => Promise<void>;
+}
+
 export async function runTlsScan(
   targetUrl: string,
+  options?: TlsScanOptions,
 ): Promise<{ report: TlsReportData; summary: TlsSummaryData }> {
   const url = new URL(targetUrl);
   const host = url.hostname;
   const port = url.port ? parseInt(url.port, 10) : TLS_SCAN_CONFIG.port;
+  if (options?.verifyUrl) {
+    await options.verifyUrl(url);
+  }
 
   const connection = await connectTls({ host, port });
 

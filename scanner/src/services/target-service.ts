@@ -27,6 +27,12 @@ export function upsertTarget(
   const hostname = new URL(url).hostname;
   const existing = getTarget(db, hostname);
   if (existing) {
+    if (existing.base_url !== url) {
+      db.prepare(
+        "UPDATE targets SET base_url = ? WHERE id = ?",
+      ).run(url, hostname);
+      return getTarget(db, hostname)!;
+    }
     return existing;
   }
   db.prepare(

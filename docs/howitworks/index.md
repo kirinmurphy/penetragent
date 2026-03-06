@@ -11,3 +11,8 @@ Architecture and flow diagrams for the Penetragent pentest agent.
 7. [Telegram Commands](./07-telegram-commands.md) — Message routing through allowlist, parser, and command handlers
 8. [Docker Architecture](./08-docker-architecture.md) — Container networking and volume layout
 9. [Job Poller Flow](./09-job-poller-flow.md) — Fire-and-forget async polling with HTML report delivery
+
+Operational guides:
+
+- [Internal Assessment Checklist](../internal-assessment-checklist.md)
+- [Incident Response Runbook](../incident-response.md)

@@ -20,7 +20,12 @@ export type {
   JobListResponse,
 } from "./schemas.js";
 
-export type { ScannerConfig, ControllerConfig } from "./config.js";
+export type {
+  ScannerConfig,
+  ControllerConfig,
+  ScanPolicyMode,
+  OutboundAuditLogLevel,
+} from "./config.js";
 
 export type {
   UnifiedReport,

@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import type Database from "better-sqlite3";
 import type { ScannerConfig } from "@penetragent/shared";
 import {
-  findRunningJob,
   findOldestQueued,
+  getJob,
   transitionToRunning,
   updateHeartbeat,
 } from "../services/job-service.js";
@@ -18,20 +18,24 @@ export function startWorker(
   console.log(`Worker started: ${workerId}`);
 
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  let inFlight = false;
 
   async function poll(): Promise<void> {
-    try {
-      const running = findRunningJob(db);
-      if (running) {
-        return;
-      }
+    if (inFlight) {
+      return;
+    }
+    inFlight = true;
 
+    try {
       const queued = findOldestQueued(db);
       if (!queued) {
         return;
       }
 
-      transitionToRunning(db, queued.id, workerId);
+      const claimed = transitionToRunning(db, queued.id, workerId);
+      if (!claimed) {
+        return;
+      }
       console.log(`Job ${queued.id} → RUNNING`);
 
       heartbeatTimer = setInterval(() => {
@@ -44,7 +48,10 @@ export function startWorker(
       }
 
       await executeScan(db, config, queued, target);
-      console.log(`Job ${queued.id} → SUCCEEDED`);
+      const finished = getJob(db, queued.id);
+      if (finished) {
+        console.log(`Job ${queued.id} → ${finished.status}`);
+      }
     } catch (err) {
       console.error("Worker error:", err);
     } finally {
@@ -52,6 +59,7 @@ export function startWorker(
         clearInterval(heartbeatTimer);
         heartbeatTimer = null;
       }
+      inFlight = false;
     }
   }
 

@@ -17,9 +17,14 @@ interface CrawlResult {
   metaGenerators: string[];
 }
 
+interface HttpScanOptions {
+  verifyUrl?: (url: URL) => Promise<void>;
+}
+
 async function crawlPages(
   baseUrl: string,
   maxPages: number,
+  options?: HttpScanOptions,
 ): Promise<CrawlResult> {
   const queued = new Set<string>([baseUrl]);
   const toVisit: string[] = [baseUrl];
@@ -30,7 +35,10 @@ async function crawlPages(
   while (toVisit.length > 0 && pages.length < maxPages) {
     const url = toVisit.shift()!;
     const isFirstPage = pages.length === 0;
-    const result = await fetchPage(url, { trackRedirects: isFirstPage });
+    const result = await fetchPage(url, {
+      trackRedirects: isFirstPage,
+      verifyUrl: options?.verifyUrl,
+    });
 
     pages.push(result.page);
 
@@ -39,7 +47,9 @@ async function crawlPages(
         redirectChain = result.redirectChain;
       }
       result.page.corsChecked = true;
-      const corsIssues = await analyzeCors(baseUrl);
+      const corsIssues = await analyzeCors(baseUrl, {
+        verifyUrl: options?.verifyUrl,
+      });
       if (corsIssues.length > 0) {
         result.page.corsIssues = corsIssues;
       }
@@ -100,8 +110,9 @@ function buildHttpSummary(config: {
 export async function runHttpScan(
   baseUrl: string,
   maxPages: number = HTTP_SCAN_CONFIG.maxPages,
+  options?: HttpScanOptions,
 ): Promise<{ report: HttpReportData; summary: HttpSummaryData }> {
-  const crawl = await crawlPages(baseUrl, maxPages);
+  const crawl = await crawlPages(baseUrl, maxPages, options);
   const findingsMap = collectFindingsByPage(crawl.pages);
   const findings = Array.from(findingsMap.keys());
   const report = buildHttpReport({ baseUrl, crawl, findings });

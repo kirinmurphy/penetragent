@@ -81,6 +81,16 @@ export function findRunningJob(
     .get() as JobRow | undefined;
 }
 
+export function findInProgressJob(
+  db: Database.Database,
+): JobRow | undefined {
+  return db
+    .prepare(
+      "SELECT * FROM jobs WHERE status IN ('RUNNING', 'QUEUED') ORDER BY CASE status WHEN 'RUNNING' THEN 0 ELSE 1 END, created_at ASC LIMIT 1",
+    )
+    .get() as JobRow | undefined;
+}
+
 export function findOldestQueued(
   db: Database.Database,
 ): JobRow | undefined {
@@ -95,13 +105,14 @@ export function transitionToRunning(
   db: Database.Database,
   jobId: string,
   workerId: string,
-): void {
+): boolean {
   const now = new Date().toISOString();
-  db.prepare(
+  const result = db.prepare(
     `UPDATE jobs
      SET status = 'RUNNING', worker_id = ?, started_at = ?, updated_at = ?, last_heartbeat_at = ?
      WHERE id = ? AND status = 'QUEUED'`,
   ).run(workerId, now, now, now, jobId);
+  return result.changes > 0;
 }
 
 export function transitionToSucceeded(
@@ -146,9 +157,10 @@ export function updateResolvedIps(
   jobId: string,
   resolvedIpsJson: string,
 ): void {
+  const now = new Date().toISOString();
   db.prepare(
-    "UPDATE jobs SET resolved_ips_json = ?, updated_at = datetime('now') WHERE id = ?",
-  ).run(resolvedIpsJson, jobId);
+    "UPDATE jobs SET resolved_ips_json = ?, updated_at = ? WHERE id = ?",
+  ).run(resolvedIpsJson, now, jobId);
 }
 
 export function markStaleJobsAsFailed(
