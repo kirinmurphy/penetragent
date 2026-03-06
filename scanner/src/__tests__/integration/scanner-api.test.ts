@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import Database from "better-sqlite3";
 import { migrate } from "../../db/migrate.js";
@@ -42,6 +42,13 @@ const testConfig: ScannerConfig = {
   workerPollIntervalMs: 100,
   heartbeatIntervalMs: 5000,
   staleHeartbeatThresholdMs: 30000,
+  scanPolicyMode: "external-safe",
+  internalAllowedHostPatterns: [],
+  internalAllowedPorts: [80, 443],
+  internalAllowPrivateIps: false,
+  internalAssessmentDisabled: false,
+  outboundEgressDisabled: false,
+  outboundAuditLogLevel: "deny",
 };
 
 function seedTestTargets(db: Database.Database): void {
@@ -53,7 +60,9 @@ function seedTestTargets(db: Database.Database): void {
   ).run("prod", "https://prod.example.com", "Test prod");
 }
 
-function buildApp(): { app: FastifyInstance; db: Database.Database } {
+function buildApp(
+  configOverrides: Partial<ScannerConfig> = {},
+): { app: FastifyInstance; db: Database.Database } {
   const db = new Database(":memory:");
   db.pragma("foreign_keys = ON");
   migrate(db);
@@ -61,7 +70,7 @@ function buildApp(): { app: FastifyInstance; db: Database.Database } {
 
   const app = Fastify();
   app.decorate("db", db);
-  app.decorate("config", testConfig);
+  app.decorate("config", { ...testConfig, ...configOverrides });
 
   app.register(healthRoutes);
   app.register(scanRoutes);
@@ -85,10 +94,44 @@ describe("Scanner API integration", () => {
     await app.close();
   });
 
+  beforeEach(() => {
+    db.prepare("DELETE FROM jobs").run();
+  });
+
   it("GET /health returns ok", async () => {
     const res = await app.inject({ method: "GET", url: "/health" });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ ok: true });
+    expect(res.json()).toEqual({
+      ok: true,
+      policy: {
+        requestedMode: "external-safe",
+        effectiveMode: "external-safe",
+        internalAssessmentDisabled: false,
+        outboundEgressDisabled: false,
+      },
+    });
+  });
+
+  it("GET /health reports kill-switch downgraded effective mode", async () => {
+    const { app: localApp } = buildApp({
+      scanPolicyMode: "internal-assessment",
+      internalAssessmentDisabled: true,
+    });
+    await localApp.ready();
+
+    const res = await localApp.inject({ method: "GET", url: "/health" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      ok: true,
+      policy: {
+        requestedMode: "internal-assessment",
+        effectiveMode: "external-safe",
+        internalAssessmentDisabled: true,
+        outboundEgressDisabled: false,
+      },
+    });
+
+    await localApp.close();
   });
 
   it("POST /scan with invalid target returns 404", async () => {
@@ -224,6 +267,28 @@ describe("Scanner API integration", () => {
     // Clean up
     db.prepare("DELETE FROM jobs WHERE id = ?").run(jobId);
   });
+
+  it("rate limits when a job is QUEUED", async () => {
+    const jobId = "rate-limit-queued-test-" + Date.now();
+    db.prepare(
+      "INSERT INTO jobs (id, target_id, scan_type, status, requested_by) VALUES (?, ?, ?, 'QUEUED', ?)",
+    ).run(jobId, "staging", "http", "test");
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/scan",
+      payload: {
+        targetId: "staging",
+        scanType: "http",
+        requestedBy: "test",
+      },
+    });
+    expect(res.statusCode).toBe(429);
+    expect(res.json().error).toBe("RATE_LIMITED");
+    expect(res.json().runningJobId).toBe(jobId);
+
+    db.prepare("DELETE FROM jobs WHERE id = ?").run(jobId);
+  });
 });
 
 describe("Full scan flow", () => {
@@ -259,6 +324,48 @@ describe("Full scan flow", () => {
     }
 
     expect(status).toBe("SUCCEEDED");
+
+    await app.close();
+  });
+
+  it("fails fast when outbound egress kill-switch is enabled", async () => {
+    const { app, db } = buildApp({ outboundEgressDisabled: true });
+    await app.ready();
+
+    startWorker(db, { ...testConfig, outboundEgressDisabled: true, workerPollIntervalMs: 50 });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/scan",
+      payload: {
+        targetId: "staging",
+        scanType: "http",
+        requestedBy: "test",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const { jobId } = res.json();
+
+    let status = "QUEUED";
+    let errorCode: string | null = null;
+    let errorMessage: string | null = null;
+
+    for (let i = 0; i < 50; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      const jobRes = await app.inject({
+        method: "GET",
+        url: `/jobs/${jobId}`,
+      });
+      const job = jobRes.json();
+      status = job.status;
+      errorCode = job.errorCode;
+      errorMessage = job.errorMessage;
+      if (status !== "QUEUED" && status !== "RUNNING") break;
+    }
+
+    expect(status).toBe("FAILED");
+    expect(errorCode).toBe("SCAN_EXECUTION_FAILED");
+    expect(errorMessage).toContain("egress is disabled");
 
     await app.close();
   });

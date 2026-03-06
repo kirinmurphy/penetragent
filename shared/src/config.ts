@@ -1,3 +1,6 @@
+export type ScanPolicyMode = "external-safe" | "internal-assessment";
+export type OutboundAuditLogLevel = "deny" | "all";
+
 export interface ScannerConfig {
   port: number;
   host: string;
@@ -6,6 +9,13 @@ export interface ScannerConfig {
   workerPollIntervalMs: number;
   heartbeatIntervalMs: number;
   staleHeartbeatThresholdMs: number;
+  scanPolicyMode: ScanPolicyMode;
+  internalAssessmentDisabled: boolean;
+  outboundEgressDisabled: boolean;
+  outboundAuditLogLevel: OutboundAuditLogLevel;
+  internalAllowedHostPatterns: string[];
+  internalAllowedPorts: number[];
+  internalAllowPrivateIps: boolean;
 }
 
 export interface ControllerConfig {

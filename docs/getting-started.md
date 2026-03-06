@@ -103,6 +103,47 @@ TELEGRAM_ALLOWED_USER_ID=987654321
 
 This file is gitignored and never committed.
 
+### Optional scanner policy mode settings
+
+By default, scanner outbound policy runs in `external-safe` mode.
+
+```
+SCAN_POLICY_MODE=external-safe
+INTERNAL_ASSESSMENT_DISABLED=false
+OUTBOUND_EGRESS_DISABLED=false
+OUTBOUND_AUDIT_LOG_LEVEL=deny
+INTERNAL_ALLOWED_HOST_PATTERNS=
+INTERNAL_ALLOWED_PORTS=80,443
+INTERNAL_ALLOW_PRIVATE_IPS=false
+```
+
+Use `SCAN_POLICY_MODE=internal-assessment` only for explicitly authorized client scopes.  
+When using internal mode, set `INTERNAL_ALLOWED_HOST_PATTERNS` and `INTERNAL_ALLOWED_PORTS` to the smallest possible allowlist.
+Set `INTERNAL_ASSESSMENT_DISABLED=true` as an emergency kill-switch to force the scanner back to `external-safe` behavior.
+Set `OUTBOUND_EGRESS_DISABLED=true` as an emergency kill-switch to block all outbound scan traffic immediately.
+Set `OUTBOUND_AUDIT_LOG_LEVEL=deny` (default) to log denied outbound attempts only, or `all` to log both allowed and denied decisions.
+
+### Operator quickstart
+
+Normal safe operation:
+
+- `SCAN_POLICY_MODE=external-safe`
+- `OUTBOUND_EGRESS_DISABLED=false`
+- `INTERNAL_ASSESSMENT_DISABLED=false`
+- `OUTBOUND_AUDIT_LOG_LEVEL=deny`
+
+Internal client assessment (authorized scope only):
+
+- `SCAN_POLICY_MODE=internal-assessment`
+- `INTERNAL_ALLOWED_HOST_PATTERNS=<approved hosts>`
+- `INTERNAL_ALLOWED_PORTS=<approved ports>`
+- `INTERNAL_ALLOW_PRIVATE_IPS=true` only when explicitly authorized
+
+Emergency stop:
+
+- Set `OUTBOUND_EGRESS_DISABLED=true`
+- Restart scanner and verify `/health` shows `outboundEgressDisabled: true`
+
 ### Start and use
 
 Start (or restart) the Docker containers — the controller picks up the `.env` automatically:

@@ -8,6 +8,11 @@ A security scanning tool you control by sending text messages to a Telegram bot.
 
 Follow [these instructions](./docs/getting-started.md) to set up and run Penetragent locally or on a VPS.
 
+For secure operations:
+
+- [Internal Assessment Checklist](./docs/internal-assessment-checklist.md)
+- [Incident Response Runbook](./docs/incident-response.md)
+
 ## The Two Pieces
 
 There are only two services:

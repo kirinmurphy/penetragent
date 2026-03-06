@@ -1,9 +1,22 @@
 import type { CorsIssue } from "@penetragent/shared";
 import { CORS_ANALYSIS_CONFIG } from "../../config/scan-rules.js";
 
-export async function analyzeCors(url: string): Promise<CorsIssue[]> {
+interface CorsOptions {
+  verifyUrl?: (url: URL) => Promise<void>;
+}
+
+export async function analyzeCors(
+  url: string,
+  options?: CorsOptions,
+): Promise<CorsIssue[]> {
   try {
+    const parsed = new URL(url);
+    if (options?.verifyUrl) {
+      await options.verifyUrl(parsed);
+    }
+
     const response = await fetch(url, {
+      redirect: "manual",
       headers: {
         "Origin": CORS_ANALYSIS_CONFIG.testOrigin,
       },

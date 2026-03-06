@@ -9,9 +9,9 @@ import {
 import type { JobRow } from "../services/job-service.js";
 import type { Target } from "../services/target-service.js";
 import {
-  verifyPublicOnly,
+  createOutboundPolicy,
   DnsError,
-} from "../security/verify-public-only.js";
+} from "../security/outbound-policy.js";
 import { runHttpScan } from "../scanTypes/http/index.js";
 import { runTlsScan } from "../scanTypes/tls/index.js";
 import { createUnifiedReport } from "../reports/unified-report-service.js";
@@ -24,10 +24,15 @@ export async function executeScan(
   target: Target,
 ): Promise<void> {
   const url = new URL(target.base_url);
+  const outboundPolicy = createOutboundPolicy({
+    scannerConfig: config,
+    targetUrl: target.base_url,
+    jobId: job.id,
+  });
 
-  let resolvedIps: string[];
   try {
-    resolvedIps = await verifyPublicOnly(url.hostname);
+    await outboundPolicy.verifyUrl(url);
+    const resolvedIps = outboundPolicy.getResolvedIps(url.hostname) ?? [];
     updateResolvedIps(db, job.id, JSON.stringify(resolvedIps));
   } catch (err) {
     if (err instanceof DnsError) {
@@ -35,7 +40,13 @@ export async function executeScan(
       transitionToFailed(db, job.id, err.code, err.message);
       return;
     }
-    throw err;
+    transitionToFailed(
+      db,
+      job.id,
+      ErrorCode.SCAN_EXECUTION_FAILED,
+      err instanceof Error ? err.message : String(err),
+    );
+    return;
   }
 
   const scanType = job.scan_type;
@@ -47,19 +58,19 @@ export async function executeScan(
     const summaryResult: { http?: Record<string, unknown>; tls?: Record<string, unknown> } = {};
 
     if (shouldRunHttp) {
-      const { report, summary } = await runHttpScan(target.base_url);
+      const { report, summary } = await runHttpScan(target.base_url, undefined, {
+        verifyUrl: (scanUrl) => outboundPolicy.verifyUrl(scanUrl),
+      });
       reportBuilder.addHttpScan(report, summary);
       summaryResult.http = summary as unknown as Record<string, unknown>;
     }
 
     if (shouldRunTls) {
-      try {
-        const { report, summary } = await runTlsScan(target.base_url);
-        reportBuilder.addTlsScan(report, summary);
-        summaryResult.tls = summary as unknown as Record<string, unknown>;
-      } catch (tlsErr) {
-        console.error(`TLS scan failed for job ${job.id}:`, tlsErr);
-      }
+      const { report, summary } = await runTlsScan(target.base_url, {
+        verifyUrl: (scanUrl) => outboundPolicy.verifyUrl(scanUrl),
+      });
+      reportBuilder.addTlsScan(report, summary);
+      summaryResult.tls = summary as unknown as Record<string, unknown>;
     }
 
     reportBuilder.write(config.reportsDir);

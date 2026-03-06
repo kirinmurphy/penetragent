@@ -3,7 +3,7 @@ import { ScanRequestSchema, ErrorCode, SCAN_TYPES } from "@penetragent/shared";
 import { getTarget, upsertTarget } from "../services/target-service.js";
 import {
   createJob,
-  findRunningJob,
+  findInProgressJob,
   getJob,
   toJobPublic,
 } from "../services/job-service.js";
@@ -37,11 +37,11 @@ export async function scanRoutes(app: FastifyInstance): Promise<void> {
       }
     }
 
-    const running = findRunningJob(app.db);
-    if (running) {
+    const inProgress = findInProgressJob(app.db);
+    if (inProgress) {
       return reply.status(429).send({
         error: ErrorCode.RATE_LIMITED,
-        runningJobId: running.id,
+        runningJobId: inProgress.id,
       });
     }
 
